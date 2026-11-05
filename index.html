@@ -42,7 +42,10 @@ video{width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:c
 .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin-left:6px}
 .flex{display:flex;gap:8px;flex-wrap:wrap}
 .flex>*{flex:1}
-details summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"▾";margin-left:auto;color:var(--mute)}
+details[open] summary::after{content:"▴"}
 </style>
 </head>
 <body>

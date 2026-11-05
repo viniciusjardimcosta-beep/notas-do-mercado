@@ -157,7 +157,15 @@
       if (chave) return say(msg, 'Só com a chave não dá para buscar a nota: cada estado tem um site. Cole o endereço completo do QR Code ou use o plano B.', true);
       return say(msg, 'Não achei um endereço nem uma chave de 44 dígitos.', true);
     }
-    if (!S.proxy) return say(msg, 'Configure o proxy em Ajustes ou use o plano B (colar o texto).', true);
+    if (!S.proxy) {
+      const campo = view.querySelector('input[type=text]');
+      if (campo) campo.value = urlMatch[0];
+      msg.replaceChildren(
+        h('div', { class: 'warn', text: 'QR Code lido! Sem o proxy o app não busca a nota sozinho. Faça assim: toque em "Abrir a nota", copie o texto da página, volte aqui e cole no plano B (opção 3).' }),
+        h('a', { class: 'btn', href: urlMatch[0], target: '_blank', rel: 'noopener noreferrer', style: 'display:inline-block;text-decoration:none;line-height:24px', text: 'Abrir a nota' }));
+      const det = view.querySelector('details'); if (det) det.open = true;
+      return;
+    }
     say(msg, 'Buscando a nota…');
     try {
       const res = await fetch(S.proxy + (S.proxy.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
