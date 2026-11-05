@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f50">
+<title>Notas do Mercado</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2320;--mute:#5d6862;--line:#e3e1d9;--brand:#1f6f50;--brand-ink:#fff;--up:#b3261e;--down:#1b7a43;--warn:#8a5a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#121513;--card:#1b201d;--ink:#eceee9;--mute:#9aa59e;--line:#2c332f;--brand:#3aa57c;--brand-ink:#0b1410;--up:#ff8a80;--down:#6fd29a;--warn:#f1c76a;--warnbg:#3a2f12}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{padding:0 16px calc(84px + env(safe-area-inset-bottom))}
+header{padding:calc(16px + env(safe-area-inset-top)) 0 8px}
+h1{font-size:20px;margin:0}
+h2{font-size:16px;margin:20px 0 8px}
+.mute{color:var(--mute);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.big{font-size:28px;font-weight:700;letter-spacing:-.5px}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .n{min-width:0;overflow-wrap:anywhere}
+.row .v{white-space:nowrap;font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.down{color:var(--down)}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer;min-height:44px}
+button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+button.danger{color:var(--up)}
+button:disabled{opacity:.5}
+input[type=text],input[type=url],input[type=number],textarea,select{font:inherit;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{min-height:110px}
+label{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;border-radius:0;background:none;padding:10px 4px;font-size:13px;color:var(--mute);min-height:56px}
+nav button[aria-current=page]{color:var(--brand);font-weight:700}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--brand)}
+.bar.cut>i{background:var(--up)}
+video{width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:cover}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin-left:6px}
+.flex{display:flex;gap:8px;flex-wrap:wrap}
+.flex>*{flex:1}
+details summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+</style>
+</head>
+<body>
+<header><h1>Notas do Mercado</h1><div class="mute" id="sub"></div></header>
+<main id="view"></main>
+<nav id="nav">
+  <button data-t="home" aria-current="page">Resumo</button>
+  <button data-t="add">Adicionar</button>
+  <button data-t="buys">Compras</button>
+  <button data-t="prices">Preços</button>
+  <button data-t="cfg">Ajustes</button>
+</nav>
+<script src="parser.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
