@@ -11,13 +11,43 @@
   };
   const VERSION = '0.3';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '' };
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
   function save() { store.set(JSON.stringify(S)); }
   // Endereço do proxy: o que a pessoa digitou em Ajustes ou, se vazio, o padrão do app (index.html).
   function proxyUrl() { return S.proxy || CFG.proxy || ''; }
+
+  // ---------- backup ----------
+  const DIA = 864e5;
+  function markBackup() { S.lastBackup = new Date().toISOString(); save(); }
+  function needsBackup() {
+    if (S.purchases.length < 3) return false;
+    const agora = Date.now();
+    const last = S.lastBackup ? Date.parse(S.lastBackup) : 0;
+    const snooze = S.backupSnooze ? Date.parse(S.backupSnooze) : 0;
+    return agora - last > 30 * DIA && agora > snooze;
+  }
+  // Abre o menu Compartilhar do celular (Drive, WhatsApp, e-mail…). Sem suporte, baixa o arquivo.
+  async function exportBackup() {
+    const name = 'notas-' + new Date().toISOString().slice(0, 10) + '.json';
+    const json = JSON.stringify(S, null, 1);
+    const tipos = ['application/json', 'text/plain'];
+    for (let i = 0; i < tipos.length; i++) {
+      let file = null;
+      try { file = new File([json], name, { type: tipos[i] }); } catch (e) { file = null; }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: 'Backup Notas do Mercado' }); markBackup(); return true; }
+        catch (e) { if (e && e.name === 'AbortError') return false; }
+      }
+    }
+    const a = h('a', { href: URL.createObjectURL(new Blob([json], { type: 'application/json' })), download: name });
+    document.body.append(a); a.click(); a.remove();
+    markBackup();
+    toast('Backup baixado. Guarde o arquivo no Drive ou em outro lugar seguro.');
+    return true;
+  }
 
   // ---------- relatório de problema (sem CPF) ----------
   let lastRead = null; // última nota lida nesta sessão (só na memória)
@@ -146,6 +176,13 @@
         h('p', { class: 'mute', text: 'Escaneie o QR Code da nota fiscal do mercado. O app lê os itens e mostra, depois de algumas compras, o que subiu de preço e onde dá para cortar.' }),
         h('button', { class: 'primary', text: 'Adicionar nota', onclick: function () { tab = 'add'; render(); } })));
       return;
+    }
+    if (needsBackup()) {
+      view.append(h('div', { class: 'card' }, h('strong', { text: 'Faça um backup' }),
+        h('p', { class: 'mute', text: 'Suas notas ficam só neste celular. Se você limpar o navegador ou trocar de aparelho, elas somem. Leva 5 segundos: escolha o Drive no menu que abrir.' }),
+        h('div', { class: 'flex' },
+          h('button', { class: 'primary', text: 'Fazer backup', onclick: function () { exportBackup().then(function () { render(); }); } }),
+          h('button', { text: 'Lembrar depois', onclick: function () { S.backupSnooze = new Date(Date.now() + 7 * DIA).toISOString(); save(); render(); } }))));
     }
     const months = Core.monthlyTotals(S.purchases);
     const last = months[months.length - 1];
@@ -480,12 +517,10 @@
       });
     });
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Seus dados' }),
-      h('div', { class: 'mute', text: 'Ficam só neste aparelho. Se limpar os dados do navegador, somem: exporte de vez em quando.' }),
+      h('div', { class: 'mute', text: 'Ficam só neste aparelho. Se limpar os dados do navegador ou trocar de celular, somem. Faça backup de vez em quando.' }),
+      h('div', { class: 'mute', text: 'Último backup: ' + (S.lastBackup ? dataBR(S.lastBackup.slice(0, 10)) : 'nunca') }),
       h('div', { class: 'flex', style: 'margin-top:10px' },
-        h('button', { text: 'Exportar', onclick: function () {
-          const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' })), download: 'notas-' + new Date().toISOString().slice(0, 10) + '.json' });
-          document.body.append(a); a.click(); a.remove();
-        } }),
+        h('button', { class: 'primary', text: 'Fazer backup', onclick: function () { exportBackup().then(function () { render(); }); } }),
         h('button', { text: 'Importar', onclick: function () { imp.click(); } }), imp),
       h('div', { style: 'margin-top:10px' }, h('button', { class: 'danger', text: 'Apagar tudo', onclick: function () {
         if (confirm('Apagar todas as notas e ajustes deste aparelho?')) { S = Object.assign({}, defaults); save(); render(); }
