@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '' };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true };
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
@@ -38,6 +38,44 @@
     return el;
   }
   const row = function (n, v, cls) { return h('div', { class: 'row' }, h('div', { class: 'n' }, n), h('div', { class: 'v ' + (cls || '') }, v)); };
+
+  function storeLabel(store) {
+    if (store && store.name) return store.name;
+    if (store && store.cnpj && store.cnpj.length === 14) return 'CNPJ ' + store.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    return 'Loja';
+  }
+  function isDup(r) {
+    return S.purchases.some(function (p) {
+      if (r.chave && p.chave) return p.chave === r.chave;
+      return p.date === r.date && Math.abs(p.total - r.total) < 0.01 && ((p.store && p.store.cnpj) || '') === ((r.store && r.store.cnpj) || '');
+    });
+  }
+  // Salva a nota lida. Devolve o registro guardado.
+  function commit(r, iso, storeName) {
+    const total = r.items.reduce(function (s, i) { return s + i.vlTotal; }, 0);
+    const rec = {
+      id: 'n' + Date.now(), chave: r.chave || '', uf: r.uf || '', date: iso,
+      store: { name: storeName || '', cnpj: (r.store && r.store.cnpj) || '' },
+      total: Math.round(total * 100) / 100,
+      items: r.items.map(function (i) { return { nome: i.nome, codigo: i.codigo, qtd: i.qtd, un: i.un, vlUnit: i.vlUnit, vlTotal: i.vlTotal }; })
+    };
+    S.purchases.push(rec); save();
+    return rec;
+  }
+  // Salva sem perguntar só quando tudo confere.
+  function autoOk(r) {
+    return !!(r.date && r.items.length && !r.warnings.length && !r.items.some(function (i) { return i.check; }) &&
+      (!r.chave || NFParser.parseChave(r.chave).valid));
+  }
+  let toastTimer = null;
+  function toast(text, undo) {
+    const old = document.getElementById('toast'); if (old) old.remove();
+    clearTimeout(toastTimer);
+    const t = h('div', { class: 'toast', id: 'toast', role: 'status' }, h('span', { text: text }));
+    if (undo) t.append(h('button', { text: 'Desfazer', onclick: function () { undo(); t.remove(); } }));
+    document.body.append(t);
+    toastTimer = setTimeout(function () { t.remove(); }, 8000);
+  }
 
   // ---------- estado de tela ----------
   let tab = 'home';
@@ -99,13 +137,18 @@
       card3.append(h('div', { text: 'Nenhuma categoria marcada ainda. Marque em Ajustes.' }));
     } else {
       card3.append(h('div', { class: 'big', text: brl(cp.totalPeriodo) }),
-        h('div', { class: 'mute', text: 'em ' + cp.dias + ' dias (' + cp.categorias.map(function (c) { return c.nome; }).join(', ') + ')' }));
+        h('div', { class: 'mute', text: 'nas notas guardadas (' + cp.categorias.map(function (c) { return c.nome; }).join(', ') + ')' }));
       const sel = h('select', { 'aria-label': 'Quanto cortar' });
       [10, 20, 30, 50].forEach(function (v) { sel.append(h('option', { value: v, selected: v === S.corte }, 'Cortar ' + v + '%')); });
       sel.addEventListener('change', function () { S.corte = +sel.value; save(); render(); });
-      card3.append(h('div', { style: 'margin-top:10px' }, sel),
-        h('p', { text: 'Se cortar ' + S.corte + '%, você economiza cerca de ' + brl(cp.economiaMensal) + ' por mês (' + brl(cp.economiaAnual) + ' por ano).' }));
-      if (cp.ancorado) card3.append(h('div', { class: 'warn', text: 'Projeção feita com menos de 4 semanas de notas: trate como estimativa grosseira.' }));
+      card3.append(h('div', { style: 'margin-top:10px' }, sel));
+      if (cp.poucosDados) {
+        card3.append(h('p', { text: 'Se tivesse cortado ' + S.corte + '% disso, teria economizado ' + brl(cp.economiaPeriodo) + ' nessas notas.' }),
+          h('div', { class: 'mute', text: 'A projeção por mês e por ano aparece depois de 4 semanas de notas (você tem ' + cp.dias + (cp.dias === 1 ? ' dia' : ' dias') + ').' }));
+      } else {
+        card3.append(h('p', { text: 'Se cortar ' + S.corte + '%, você economiza cerca de ' + brl(cp.economiaMensal) + ' por mês (' + brl(cp.economiaAnual) + ' por ano).' }),
+          h('div', { class: 'mute', text: 'Estimativa baseada em ' + cp.dias + ' dias de notas.' }));
+      }
     }
     view.append(card3);
 
@@ -186,6 +229,15 @@
     try { r = NFParser.parseAny(text); } catch (e) { return say(msg, 'Erro ao ler a nota: ' + e.message, true); }
     if (!r.items.length) return say(msg, 'Não consegui achar itens nessa página. Se o texto da nota estiver na tela, use o plano B e me mande um exemplo para eu ajustar o leitor (sem CPF).', true);
     if (!r.chave) { const k = NFParser.extractChave(origem); if (k) r.chave = k; }
+    if (isDup(r)) return say(msg, 'Essa nota já estava salva (' + dataBR(r.date) + ', ' + brl(r.total) + ').', true);
+    if (S.auto && autoOk(r)) {
+      const rec = commit(r, r.date, r.store.name);
+      pending = null; tab = 'home'; render();
+      toast('Nota salva: ' + rec.items.length + ' itens, ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () {
+        S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); save(); render();
+      });
+      return;
+    }
     pending = r; render();
   }
 
@@ -242,12 +294,13 @@
   // ---------- revisão ----------
   function viewReview() {
     const r = pending;
-    const dup = r.chave && S.purchases.some(function (p) { return p.chave === r.chave; });
+    const dup = isDup(r);
     const dateInp = h('input', { type: 'text', value: r.date ? dataBR(r.date) : '', placeholder: 'dd/mm/aaaa', inputmode: 'numeric' });
+    const storeInp = h('input', { type: 'text', value: r.store.name || '', placeholder: 'Nome do mercado', autocomplete: 'off', 'aria-label': 'Nome da loja' });
     const card = h('div', { class: 'card' },
       h('div', { class: 'mute', text: 'Confira antes de salvar' }),
       h('div', { class: 'big', text: brl(r.total) }),
-      h('div', { class: 'mute', text: (r.store.name || 'Loja não identificada') + (r.uf ? ' · ' + r.uf : '') }),
+      h('label', { text: 'Nome da loja' + (r.uf ? ' (' + r.uf + ')' : '') }), storeInp,
       h('label', { text: 'Data da compra' }), dateInp);
     if (dup) card.append(h('div', { class: 'warn', text: 'Esta nota já foi salva antes. Salvar de novo duplicaria os gastos.' }));
     r.warnings.forEach(function (w) { card.append(h('div', { class: 'warn', text: w })); });
@@ -266,22 +319,31 @@
       h('button', { class: 'primary', text: 'Salvar nota', disabled: dup, onclick: function () {
         const iso = NFParser.toISODate(dateInp.value) || r.date;
         if (!iso) { dateInp.focus(); return alert('Informe a data da compra (dd/mm/aaaa).'); }
-        const total = r.items.reduce(function (s, i) { return s + i.vlTotal; }, 0);
-        S.purchases.push({
-          id: 'n' + Date.now(), chave: r.chave || '', uf: r.uf || '', date: iso, store: r.store,
-          total: Math.round(total * 100) / 100, items: r.items.map(function (i) { return { nome: i.nome, codigo: i.codigo, qtd: i.qtd, un: i.un, vlUnit: i.vlUnit, vlTotal: i.vlTotal }; })
-        });
-        save(); pending = null; tab = 'home'; render();
+        commit(r, iso, storeInp.value.trim());
+        pending = null; tab = 'home'; render();
       } })));
   }
 
   // ---------- Compras ----------
+  let openBuy = null;
   function viewBuys() {
     if (!S.purchases.length) return view.append(h('div', { class: 'card', text: 'Nenhuma nota ainda.' }));
+    // acha o produto de cada item para mostrar e corrigir a categoria
+    const byItem = {};
+    Core.buildProducts(S.purchases).forEach(function (pr) { pr.compras.forEach(function (c) { byItem[c.nota + '|' + c.nome] = pr; }); });
+    view.append(h('div', { class: 'mute', text: 'Abaixo de cada item está a categoria dele. Toque nela para corrigir: o app lembra nas próximas notas.' }));
     S.purchases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).forEach(function (p) {
-      const d = h('details', { class: 'card' },
-        h('summary', null, h('span', null, dataBR(p.date) + ' · ' + (p.store.name || 'Loja') + ' · ' + brl(p.total))));
-      p.items.forEach(function (it) { d.append(row(it.nome, brl(it.vlTotal))); });
+      const d = h('details', { class: 'card', open: p.id === openBuy },
+        h('summary', null, h('span', null, dataBR(p.date) + ' · ' + storeLabel(p.store) + ' · ' + brl(p.total))));
+      d.addEventListener('toggle', function () { if (d.open) openBuy = p.id; else if (openBuy === p.id) openBuy = null; });
+      p.items.forEach(function (it) {
+        const pr = byItem[p.id + '|' + it.nome];
+        const cat = pr ? (S.overrides[pr.key] || pr.categoria) : 'outros';
+        const sel = h('select', { 'aria-label': 'Categoria de ' + it.nome, style: 'width:auto;max-width:100%;padding:4px 8px;font-size:13px;margin-top:4px' });
+        Core.CATEGORIES.forEach(function (c) { sel.append(h('option', { value: c.id, selected: c.id === cat }, c.nome)); });
+        sel.addEventListener('change', function () { if (pr) { S.overrides[pr.key] = sel.value; save(); } render(); });
+        d.append(h('div', { class: 'row' }, h('div', { class: 'n' }, it.nome, h('div', null, sel)), h('div', { class: 'v', text: brl(it.vlTotal) })));
+      });
       d.append(h('div', { style: 'margin-top:10px' }, h('button', { class: 'danger', text: 'Apagar esta nota', onclick: function () {
         if (confirm('Apagar esta nota?')) { S.purchases = S.purchases.filter(function (x) { return x.id !== p.id; }); save(); render(); }
       } })));
@@ -315,6 +377,12 @@
 
   // ---------- Ajustes ----------
   function viewCfg() {
+    const autoCb = h('input', { type: 'checkbox', id: 'auto', checked: S.auto });
+    autoCb.addEventListener('change', function () { S.auto = autoCb.checked; save(); });
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Salvar nota automaticamente' }),
+      h('div', { class: 'mute', text: 'Quando a soma dos itens bate com o total e a chave confere, a nota é salva direto, com um botão Desfazer por 8 segundos. Se algo não bater, o app mostra a tela de conferência.' }),
+      h('div', { class: 'row' }, h('label', { for: 'auto', style: 'margin:0;color:inherit;font-size:16px;flex:1' }, 'Salvar sem pedir confirmação'), autoCb)));
+
     const proxy = h('input', { type: 'url', value: S.proxy, placeholder: 'https://notas-proxy.seunome.workers.dev', inputmode: 'url' });
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Proxy de leitura' }),
       h('div', { class: 'mute', text: 'Endereço do seu Cloudflare Worker (veja o README). Ele só repassa a página pública da nota; não guarda nada.' }),
@@ -354,4 +422,18 @@
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
   render();
+
+  // Quando o app recebe um endereço pelo menu "Compartilhar" do celular
+  (function fromShare() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const blob = [q.get('url'), q.get('text'), q.get('title')].filter(Boolean).join(' ');
+      if (!blob) return;
+      history.replaceState(null, '', location.pathname);
+      if (/https?:\/\//i.test(blob) || NFParser.extractChave(blob)) {
+        tab = 'add'; render();
+        handleInput(blob, document.getElementById('msg'));
+      }
+    } catch (e) { /* ignora */ }
+  })();
 })();

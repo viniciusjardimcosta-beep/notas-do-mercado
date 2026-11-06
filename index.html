@@ -42,6 +42,8 @@ video{width:100%;border-radius:12px;background:#000;max-height:46vh;object-fit:c
 .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin-left:6px}
 .flex{display:flex;gap:8px;flex-wrap:wrap}
 .flex>*{flex:1}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(72px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);padding:12px 14px;border-radius:12px;display:flex;gap:12px;align-items:center;justify-content:space-between;z-index:5;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.toast button{background:transparent;color:inherit;border:1px solid currentColor;min-height:36px;padding:6px 12px}
 details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;list-style:none}
 details summary::-webkit-details-marker{display:none}
 details summary::after{content:"▾";margin-left:auto;color:var(--mute)}

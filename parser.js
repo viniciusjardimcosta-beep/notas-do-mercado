@@ -147,6 +147,21 @@
     return out;
   }
 
+  // Nome da loja: texto antes de "CNPJ" na primeira linha que o contém (ou a linha anterior).
+  function storeFromLines(text) {
+    const lines = String(text).split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^(.*?)\s*CNPJ\b/i);
+      if (!m) continue;
+      let nome = m[1].replace(/[\s:\-–|,.]+$/, '');
+      if (nome.length < 3 && i > 0) nome = lines[i - 1];
+      nome = nome.replace(/\s+/g, ' ').trim();
+      if (nome.length >= 3 && nome.length <= 80 && !/^(NFC|DANFE|Documento|Consulta)/i.test(nome)) return nome;
+      return '';
+    }
+    return '';
+  }
+
   // ---------- API ----------
   function finish(items, header, chaveSrc, strategy) {
     const warnings = [];
@@ -186,6 +201,7 @@
     const text = String(str || '');
     const collapsed = text.replace(/\s+/g, ' ');
     const header = parseHeader(collapsed, null);
+    if (!header.store.name) header.store.name = storeFromLines(text);
     let items = [], strategy = 'texto';
     // 1) uma linha por item (texto copiado de página com quebras de linha)
     text.split(/\r?\n/).forEach(function (line) {

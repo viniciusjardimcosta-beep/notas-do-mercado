@@ -128,7 +128,7 @@
         byKey[n.key] = prod;
         prod.compras.push({
           data: p.date, loja: (p.store && p.store.name) || '', cnpj: (p.store && p.store.cnpj) || '',
-          qtd: it.qtd, un: it.un, vlUnit: it.vlUnit, vlTotal: it.vlTotal, nota: p.id
+          qtd: it.qtd, un: it.un, vlUnit: it.vlUnit, vlTotal: it.vlTotal, nota: p.id, nome: it.nome
         });
       });
     });
@@ -239,14 +239,19 @@
   function cutPotential(purchases, overrides, cutMap, corte) {
     const cats = categoryTotals(purchases, overrides, cutMap).filter(function (c) { return c.cortavel; });
     const dates = purchases.map(function (p) { return p.date; }).filter(Boolean).sort();
-    let dias = 30;
+    let dias = 1;
     if (dates.length >= 2) {
       const a = new Date(dates[0] + 'T00:00:00'), b = new Date(dates[dates.length - 1] + 'T00:00:00');
-      dias = Math.max(7, Math.round((b - a) / 86400000) + 1);
+      dias = Math.max(1, Math.round((b - a) / 86400000) + 1);
     }
     const total = cats.reduce(function (s, c) { return s + c.total; }, 0);
-    const anual = total / dias * 365 * (corte / 100);
-    return { categorias: cats, totalPeriodo: total, dias: dias, corte: corte, economiaAnual: anual, economiaMensal: anual / 12, ancorado: dias < 28 };
+    // Só projeta mês/ano com pelo menos 4 semanas de notas; antes disso a conta seria chute.
+    const poucosDados = dias < 28;
+    const anual = poucosDados ? null : total / dias * 365 * (corte / 100);
+    return {
+      categorias: cats, totalPeriodo: total, dias: dias, corte: corte, poucosDados: poucosDados,
+      economiaPeriodo: total * (corte / 100), economiaAnual: anual, economiaMensal: anual == null ? null : anual / 12
+    };
   }
 
   return {
