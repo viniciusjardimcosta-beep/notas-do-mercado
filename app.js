@@ -206,7 +206,7 @@
       card2.append(h('div', { class: 'big', text: '—' }), h('div', { class: 'mute', text: 'Precisa de pelo menos 3 produtos comprados em datas diferentes (' + inf.produtos + ' até agora).' }));
     } else {
       card2.append(h('div', { class: 'big ' + (inf.pct > 0 ? 'up' : 'down'), text: pct(inf.pct) }),
-        h('div', { class: 'mute', text: 'Média ponderada pelo gasto, em ' + inf.produtos + ' produtos que você repetiu. Compare com o IPCA de alimentos do IBGE.' }));
+        h('div', { class: 'mute', text: 'Média ponderada pelo gasto, em ' + inf.produtos + ' produtos que você repetiu. Compare com o IPCA de alimentos do IBGE.' + (inf.excluidos ? ' Deixei de fora ' + inf.excluidos + (inf.excluidos === 1 ? ' produto' : ' produtos') + ' com variação acima de 40% (pode ser promoção).' : '') }));
     }
     view.append(card2);
 
@@ -455,6 +455,7 @@
       card.append(h('div', { class: 'row' },
         h('div', { class: 'n' }, c.nome,
           h('div', { class: 'mute', text: brl(c.de) + ' → ' + brl(c.para) + ' por ' + c.rotulo }),
+          c.suspeito ? h('div', { class: 'warn', style: 'margin:6px 0;padding:6px 10px;font-size:13px', text: 'Variação grande: pode ser promoção. Não entra na sua inflação.' }) : null,
           c.nomes.length > 1 ? h('div', { class: 'mute', text: 'Junta: ' + c.nomes.slice(0, 3).join(' · ') }) : null,
           acoes),
         h('div', { class: 'v ' + (c.pct > 0 ? 'up' : 'down'), text: pct(c.pct) })));

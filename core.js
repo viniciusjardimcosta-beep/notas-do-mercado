@@ -249,6 +249,9 @@
     return { atual: atual, anterior: anterior, ate: emAndamento ? ate : null, ok: ok, pct: ok ? (atual.total - anterior.total) / anterior.total * 100 : null };
   }
 
+  // Variações acima disso provavelmente são promoção (ou produto diferente) e não entram na inflação pessoal.
+  const LIMITE_SUSPEITO = 40;
+
   // Variação de preço por produto: primeiro vs último preço comparável, com pelo menos 2 compras em datas diferentes.
   function priceChanges(purchases) {
     const out = [];
@@ -262,15 +265,18 @@
       out.push({
         id: pr.id, key: pr.key, rawKeys: pr.rawKeys, nomes: pr.nomes, nome: pr.nome, rotulo: a.rotulo, de: a.valor, para: b.valor, pct: pct,
         dataDe: first.data, dataPara: last.data, lojaDe: first.loja, lojaPara: last.loja, categoria: pr.categoria,
-        compras: pr.compras.length
+        compras: pr.compras.length, suspeito: Math.abs(pct) >= LIMITE_SUSPEITO
       });
     });
-    return out.sort(function (a, b) { return b.pct - a.pct; });
+    // variações normais primeiro; as suspeitas (possível promoção) vão para o fim
+    return out.sort(function (a, b) { if (a.suspeito !== b.suspeito) return a.suspeito ? 1 : -1; return b.pct - a.pct; });
   }
 
   // Inflação pessoal: média ponderada pelo gasto (primeira compra) dos produtos que você comprou 2+ vezes.
   function personalInflation(purchases) {
-    const ch = priceChanges(purchases);
+    const todas = priceChanges(purchases);
+    const ch = todas.filter(function (c) { return !c.suspeito; });
+    const excluidos = todas.length - ch.length;
     let wsum = 0, acc = 0, n = 0;
     const products = {};
     buildProducts(purchases).forEach(function (p) { products[p.id] = p; });
@@ -279,8 +285,8 @@
       const w = pr.compras[0].vlTotal;
       acc += c.pct * w; wsum += w; n++;
     });
-    if (n < 3) return { pct: null, produtos: n };
-    return { pct: acc / wsum, produtos: n };
+    if (n < 3) return { pct: null, produtos: n, excluidos: excluidos };
+    return { pct: acc / wsum, produtos: n, excluidos: excluidos };
   }
 
   // Onde está mais barato: último preço por loja de cada produto comprado em 2+ lojas.
