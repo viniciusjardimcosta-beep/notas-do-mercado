@@ -27,11 +27,16 @@
 
   // Palavras-chave (em minúsculas, sem acento). A primeira categoria que casar vence.
   const RULES = [
+    // prioridade: itens que o nome de outra categoria confundiria (ex.: "sabonete aveia", "pepino conserva")
+    ['higiene', ['sabonete', 'shampoo', 'xampu', 'condicionador', 'creme dental', 'pasta de dente', 'desodorante', 'papel higienico', 'absorvente', 'fralda', 'cotonete', 'fio dental', 'hidratante']],
+    ['laticinios', ['iogurte', 'beb lac', 'bebida lactea', 'creme de leite', 'leite condensado', 'requeijao']],
+    ['bebidas', ['suco ', 'nectar', 'refresco']],
+    ['mercearia', ['conserva', 'extremo sabor', 'paprica', 'oregano', 'colorau', 'cominho', 'pimenta', 'achoc', 'farofa', 'caldo ', 'tempero', 'molho']],
     ['refri', ['refrig', 'refri ', 'coca cola', 'coca-cola', 'guarana', 'fanta', 'sprite', 'pepsi', 'energetico', 'red bull', 'monster', 'soda ']],
     ['alcool', ['cerveja', 'vinho', 'vodka', 'whisky', 'cachaca', 'gin ', 'espumante', 'skol', 'brahma', 'heineken', 'antarctica', 'itaipava']],
-    ['snacks', ['biscoito', 'bolacha', 'bisc ', 'bisc.', 'cookie', 'salgadinho', 'batata chips', 'chips', 'doritos', 'ruffles', 'cheetos', 'pipoca', 'chocolate', 'bombom', 'bala ', 'balas', 'pirulito', 'chiclete', 'goma de', 'sorvete', 'wafer', 'recheado', 'trakinas', 'oreo', 'amendoim', 'doce de', 'paçoca', 'pacoca']],
-    ['hortifruti', ['banana', 'maca ', 'laranja', 'limao', 'tomate', 'cebola', 'alho', 'batata', 'cenoura', 'alface', 'abobora', 'mamao', 'melancia', 'abacaxi', 'uva', 'manga', 'pepino', 'pimentao', 'repolho', 'brocolis', 'couve', 'mandioca', 'verdura', 'fruta', 'legume']],
-    ['carnes', ['carne', 'frango', 'file ', 'bife', 'patinho', 'alcatra', 'acem', 'costela', 'linguica', 'salsicha', 'peixe', 'tilapia', 'sardinha', 'atum', 'bacon', 'presunto', 'ovos', 'ovo ', 'moida', 'coxa', 'sobrecoxa', 'peito de']],
+    ['snacks', ['biscoito', 'bolacha', 'bisc ', 'bisc.', 'cookie', 'salgadinho', 'batata chips', 'batata palha', 'chips', 'doritos', 'ruffles', 'cheetos', 'pipoca', 'chocolate', 'bombom', 'bala ', 'balas', 'pirulito', 'chiclete', 'goma de', 'sorvete', 'wafer', 'recheado', 'trakinas', 'oreo', 'amendoim', 'doce de', 'paçoca', 'pacoca']],
+    ['hortifruti', ['banana', 'maca ', 'laranja', 'limao', 'tomate', 'cebola', 'alho', 'batata', 'cenoura', 'alface', 'abobora', 'mamao', 'melancia', 'abacaxi', 'uva', 'manga', 'pepino', 'pimentao', 'repolho', 'brocolis', 'couve', 'mandioca', 'verdura', 'fruta', 'legume', ' pera ', 'morango', 'abacate', 'kiwi', 'melao', 'goiaba', 'pessego', 'ameixa', 'beterraba', 'batata rosa']],
+    ['carnes', ['carne', 'frango', 'file ', 'bife', 'patinho', 'alcatra', 'acem', 'costela', 'linguica', 'salsicha', 'peixe', 'tilapia', 'sardinha', 'atum', 'bacon', 'presunto', 'ovos', 'ovo ', 'moida', 'coxa', 'sobrecoxa', 'peito de', 'paleta', 'fgo', 'filezinho', 'moela', 'hot dog', 'pernil', 'lombo', 'picanha', 'maminha', 'fraldinha', 'cupim', 'figado', 'mortadela', 'salame', 'copa ']],
     ['laticinios', ['leite', 'queijo', 'iogurte', 'manteiga', 'margarina', 'requeijao', 'creme de leite', 'nata', 'mussarela', 'muçarela', 'ricota', 'danone', 'yakult']],
     ['padaria', ['pao ', 'pao-', 'paes', 'bisnaga', 'bolo ', 'torrada', 'baguete', 'croissant']],
     ['mercearia', ['arroz', 'feijao', 'macarrao', 'espaguete', 'farinha', 'acucar', 'sal ', 'oleo', 'azeite', 'cafe', 'molho', 'extrato', 'milho', 'ervilha', 'fuba', 'aveia', 'tempero', 'vinagre', 'maionese', 'ketchup', 'lentilha', 'grao', 'cereal']],
@@ -39,7 +44,7 @@
     ['prontos', ['pizza', 'lasanha', 'nugget', 'empanado', 'hamburguer', 'congelad', 'pao de queijo', 'miojo', 'lamen', 'sopa']],
     ['limpeza', ['detergente', 'sabao', 'amaciante', 'desinfetante', 'agua sanitaria', 'cloro', 'limpador', 'esponja', 'multiuso', 'saco de lixo', 'papel toalha', 'lava ', 'veja ', 'omo ', 'ype']],
     ['higiene', ['shampoo', 'xampu', 'condicionador', 'sabonete', 'creme dental', 'pasta de dente', 'escova', 'desodorante', 'papel higienico', 'absorvente', 'fralda', 'cotonete', 'fio dental', 'hidratante', 'barbear']],
-    ['pet', ['racao', 'pet ', 'areia sanitaria', 'sache gato', 'sache cao']]
+    ['pet', ['racao', 'petisco', 'areia sanitaria', 'sache gato', 'sache cao']]
   ];
 
   function strip(s) {
