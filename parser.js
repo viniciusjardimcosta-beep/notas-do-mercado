@@ -79,9 +79,15 @@
   function parseTabResult(doc) {
     const items = [];
     const names = doc.querySelectorAll('.txtTit');
+    const seen = [];
     names.forEach(function (el) {
       const row = el.closest('tr') || el.parentElement;
       if (!row) return;
+      // páginas reais usam a mesma classe no rótulo "Vl. Total 17,90": não é produto
+      if (/^\s*(?:Vl\.?|Valor)\s*(?:Total|Unit)/i.test(el.textContent)) return;
+      // um item por linha da tabela: só o primeiro nome vale
+      if (seen.indexOf(row) >= 0) return;
+      seen.push(row);
       const q = function (sel) { const e = row.querySelector(sel); return e ? e.textContent.trim() : ''; };
       const nome = el.textContent.replace(/\s+/g, ' ').trim();
       const qtd = lastNum(q('.Rqtd'));
