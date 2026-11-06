@@ -19,7 +19,7 @@
     { id: 'refri', nome: 'Refrigerantes e energéticos', cortavel: true },
     { id: 'alcool', nome: 'Bebidas alcoólicas', cortavel: true },
     { id: 'prontos', nome: 'Congelados e prontos', cortavel: false },
-    { id: 'limpeza', nome: 'Limpeza', cortavel: false },
+    { id: 'limpeza', nome: 'Limpeza e casa', cortavel: false },
     { id: 'higiene', nome: 'Higiene e beleza', cortavel: false },
     { id: 'pet', nome: 'Pet', cortavel: false },
     { id: 'outros', nome: 'Outros', cortavel: false }
@@ -27,23 +27,22 @@
 
   // Palavras-chave (em minúsculas, sem acento). A primeira categoria que casar vence.
   const RULES = [
-    // prioridade: itens que o nome de outra categoria confundiria (ex.: "sabonete aveia", "pepino conserva")
-    ['higiene', ['sabonete', 'shampoo', 'xampu', 'condicionador', 'creme dental', 'pasta de dente', 'desodorante', 'papel higienico', 'absorvente', 'fralda', 'cotonete', 'fio dental', 'hidratante']],
-    ['laticinios', ['iogurte', 'beb lac', 'bebida lactea', 'creme de leite', 'leite condensado', 'requeijao']],
-    ['bebidas', ['suco ', 'nectar', 'refresco']],
-    ['mercearia', ['conserva', 'extremo sabor', 'paprica', 'oregano', 'colorau', 'cominho', 'pimenta', 'achoc', 'farofa', 'caldo ', 'tempero', 'molho']],
-    ['refri', ['refrig', 'refri ', 'coca cola', 'coca-cola', 'guarana', 'fanta', 'sprite', 'pepsi', 'energetico', 'red bull', 'monster', 'soda ']],
-    ['alcool', ['cerveja', 'vinho', 'vodka', 'whisky', 'cachaca', 'gin ', 'espumante', 'skol', 'brahma', 'heineken', 'antarctica', 'itaipava']],
-    ['snacks', ['biscoito', 'bolacha', 'bisc ', 'bisc.', 'cookie', 'salgadinho', 'batata chips', 'batata palha', 'chips', 'doritos', 'ruffles', 'cheetos', 'pipoca', 'chocolate', 'bombom', 'bala ', 'balas', 'pirulito', 'chiclete', 'goma de', 'sorvete', 'wafer', 'recheado', 'trakinas', 'oreo', 'amendoim', 'doce de', 'paçoca', 'pacoca']],
-    ['hortifruti', ['banana', 'maca ', 'laranja', 'limao', 'tomate', 'cebola', 'alho', 'batata', 'cenoura', 'alface', 'abobora', 'mamao', 'melancia', 'abacaxi', 'uva', 'manga', 'pepino', 'pimentao', 'repolho', 'brocolis', 'couve', 'mandioca', 'verdura', 'fruta', 'legume', ' pera ', 'morango', 'abacate', 'kiwi', 'melao', 'goiaba', 'pessego', 'ameixa', 'beterraba', 'batata rosa']],
-    ['carnes', ['carne', 'frango', 'file ', 'bife', 'patinho', 'alcatra', 'acem', 'costela', 'linguica', 'salsicha', 'peixe', 'tilapia', 'sardinha', 'atum', 'bacon', 'presunto', 'ovos', 'ovo ', 'moida', 'coxa', 'sobrecoxa', 'peito de', 'paleta', 'fgo', 'filezinho', 'moela', 'hot dog', 'pernil', 'lombo', 'picanha', 'maminha', 'fraldinha', 'cupim', 'figado', 'mortadela', 'salame', 'copa ']],
-    ['laticinios', ['leite', 'queijo', 'iogurte', 'manteiga', 'margarina', 'requeijao', 'creme de leite', 'nata', 'mussarela', 'muçarela', 'ricota', 'danone', 'yakult']],
-    ['padaria', ['pao ', 'pao-', 'paes', 'bisnaga', 'bolo ', 'torrada', 'baguete', 'croissant']],
-    ['mercearia', ['arroz', 'feijao', 'macarrao', 'espaguete', 'farinha', 'acucar', 'sal ', 'oleo', 'azeite', 'cafe', 'molho', 'extrato', 'milho', 'ervilha', 'fuba', 'aveia', 'tempero', 'vinagre', 'maionese', 'ketchup', 'lentilha', 'grao', 'cereal']],
-    ['bebidas', ['agua', 'suco', 'cha ', 'cha-', 'leite de coco', 'isotonico', 'gatorade']],
-    ['prontos', ['pizza', 'lasanha', 'nugget', 'empanado', 'hamburguer', 'congelad', 'pao de queijo', 'miojo', 'lamen', 'sopa']],
-    ['limpeza', ['detergente', 'sabao', 'amaciante', 'desinfetante', 'agua sanitaria', 'cloro', 'limpador', 'esponja', 'multiuso', 'saco de lixo', 'papel toalha', 'lava ', 'veja ', 'omo ', 'ype']],
-    ['higiene', ['shampoo', 'xampu', 'condicionador', 'sabonete', 'creme dental', 'pasta de dente', 'escova', 'desodorante', 'papel higienico', 'absorvente', 'fralda', 'cotonete', 'fio dental', 'hidratante', 'barbear']],
+    // PRIORIDADE: itens que o nome de outra categoria confundiria (ex.: "sabonete aveia", "agua sanitaria", "massa c/ovos")
+    ['higiene', ['sabonete', 'shampoo', 'xampu', 'condicionador', 'creme dental', 'pasta de dente', 'escova dental', 'enxaguante', 'listerine', 'desodorante', 'papel higienico', 'absorvente', 'fralda', 'cotonete', 'fio dental', 'hidratante', 'protetor solar', 'lenco umedecido', 'talco', 'esmalte', 'acetona', 'perfume', 'colonia', 'aparelho de barbear', 'barbear']],
+    ['limpeza', ['agua sanitaria', 'alvejante', 'desinfetante', 'detergente', 'amaciante', 'sabao', 'lava roupas', 'lava loucas', 'lava-roupas', 'tira manchas', 'tira-manchas', 'limpador', 'multiuso', 'esponja', 'bucha', 'saco de lixo', 'papel toalha', 'papel aluminio', 'filme pvc', 'inseticida', 'repelente', 'vassoura', 'rodo ', 'pano de', 'luva ', 'fosforo', 'vela ', 'sifao', 'guardanapo', 'cloro']],
+    ['laticinios', ['iogurte', 'beb lac', 'bebida lactea', 'creme de leite', 'leite condensado', 'leite em po', 'requeijao', 'coalhada', 'chantilly', 'cream cheese', 'petit suisse']],
+    ['bebidas', ['suco ', 'nectar', 'refresco', 'agua mineral', 'agua de coco', 'isotonico', 'gatorade', 'cha pronto']],
+    ['mercearia', ['conserva', 'extremo sabor', 'paprica', 'oregano', 'colorau', 'cominho', 'pimenta ', 'pimenta-', 'achoc', 'farofa', 'caldo ', 'tempero', 'molho', 'massa ', 'talharim', 'macarrao', 'espaguete', 'fermento', 'sagu', 'tapioca', 'maisena', 'amido', 'granola', 'geleia', 'mel ', 'proteina de soja']],
+    ['refri', ['refrig', 'refri ', 'coca cola', 'coca-cola', 'guarana', 'fanta', 'sprite', 'pepsi', 'energetico', 'red bull', 'monster', 'soda ', 'tonica', 'schweppes', 'kuat', 'h2oh']],
+    ['alcool', ['cerveja', 'chopp', 'long neck', 'pilsen', 'lager', 'vinho', 'vodka', 'whisky', 'cachaca', 'gin ', 'espumante', 'licor', 'conhaque', 'tequila', 'campari', 'aperol', 'skol', 'brahma', 'heineken', 'antarctica', 'itaipava']],
+    ['snacks', ['biscoito', 'bolacha', 'bisc ', 'bisc.', 'cookie', 'salgadinho', 'salg ', 'palitinho', 'batata chips', 'batata palha', 'chips', 'doritos', 'ruffles', 'cheetos', 'pipoca', 'chocolate', 'bombom', 'brigadeiro', 'bala ', 'balas', 'pirulito', 'chiclete', 'goma de', 'sorvete', 'picole', 'wafer', 'recheado', 'trakinas', 'oreo', 'amendoim', 'doce de', 'pacoca', 'paçoca', 'barra de cereal', 'pao de mel', 'panetone']],
+    ['hortifruti', ['banana', 'maca ', 'laranja', 'limao', 'tomate', 'cebola', 'alho', 'batata', 'cenoura', 'alface', 'abobora', 'abobrinha', 'chuchu', 'vagem', 'mamao', 'melancia', 'melao', 'abacaxi', 'abacate', 'uva', 'manga', 'pepino', 'pimentao', 'repolho', 'brocolis', 'couve', 'mandioca', 'inhame', 'beterraba', 'espinafre', 'rucula', 'agriao', 'coentro', 'cheiro verde', 'gengibre', 'tangerina', 'mexerica', 'ponkan', 'caqui', 'figo', 'verdura', 'fruta', 'legume', ' pera ', 'morango', 'kiwi', 'goiaba', 'pessego', 'ameixa']],
+    ['carnes', ['carne', 'carre', 'chuleta', 'suin', 'bovin', 'frango', 'fgo', 'file ', 'filezinho', 'bife', 'steak', 'patinho', 'alcatra', 'acem', 'costela', 'costelinha', 'cost def', 'cost ', 'linguica', 'salsicha', 'salsichao', 'hot dog', 'peixe', 'tilapia', 'sardinha', 'atum', 'bacon', 'presunto', 'mortadela', 'salame', 'ovos', 'ovo ', 'moida', 'moela', 'coxa', 'sobrecoxa', 'peito de', 'paleta', 'pernil', 'lombo', 'picanha', 'maminha', 'fraldinha', 'cupim', 'figado', 'bisteca', 'kafta', 'churrasco', 'peru ', 'chester', 'tender', 'copa ']],
+    ['laticinios', ['leite', 'queijo', 'manteiga', 'margarina', 'nata', 'mussarela', 'muçarela', 'ricota', 'parmesao', 'provolone', 'danone', 'yakult']],
+    ['padaria', ['pao ', 'pao-', 'paes', 'bisnaga', 'bolo ', 'torrada', 'baguete', 'croissant', 'rosca', 'cuca', 'sonho', 'broa']],
+    ['mercearia', ['arroz', 'feijao', 'farinha', 'acucar', 'sal ', 'oleo', 'azeite', 'cafe', 'extrato', 'milho', 'ervilha', 'fuba', 'aveia', 'vinagre', 'maionese', 'ketchup', 'lentilha', 'grao', 'cereal', 'gelatina', 'pudim']],
+    ['bebidas', ['agua', 'suco', 'cha ', 'cha-']],
+    ['prontos', ['pizza', 'lasanha', 'nugget', 'empanado', 'hamburguer', 'congelad', 'pao de queijo', 'miojo', 'lamen', 'sopa', 'kibe', 'coxinha', 'almondega']],
     ['pet', ['racao', 'petisco', 'areia sanitaria', 'sache gato', 'sache cao']]
   ];
 
