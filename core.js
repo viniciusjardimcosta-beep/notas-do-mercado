@@ -272,6 +272,26 @@
     return out.sort(function (a, b) { if (a.suspeito !== b.suspeito) return a.suspeito ? 1 : -1; return b.pct - a.pct; });
   }
 
+  // Itens da nota recém-salva que ficaram mais caros que a compra anterior do mesmo produto.
+  function priceAlerts(purchases, notaId, minPct) {
+    minPct = minPct == null ? 10 : minPct;
+    const out = [];
+    buildProducts(purchases).forEach(function (pr) {
+      const atuais = pr.compras.filter(function (c) { return c.nota === notaId; });
+      const atual = atuais[atuais.length - 1];
+      if (!atual || !atual.data) return;
+      const anteriores = pr.compras.filter(function (c) { return c.nota !== notaId && c.data && c.data <= atual.data; });
+      const antes = anteriores[anteriores.length - 1];
+      if (!antes) return;
+      const a = unitPrice(pr, antes), b = unitPrice(pr, atual);
+      if (!a.valor || !b.valor) return;
+      const pct = (b.valor - a.valor) / a.valor * 100;
+      if (pct < minPct) return;
+      out.push({ nome: pr.nome, de: a.valor, para: b.valor, rotulo: a.rotulo, pct: pct, dataDe: antes.data, suspeito: pct >= LIMITE_SUSPEITO });
+    });
+    return out.sort(function (x, y) { return y.pct - x.pct; });
+  }
+
   // Inflação pessoal: média ponderada pelo gasto (primeira compra) dos produtos que você comprou 2+ vezes.
   function personalInflation(purchases) {
     const todas = priceChanges(purchases);
@@ -332,6 +352,6 @@
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,
-    configure: configure, resolveKey: resolveKey, pairKey: pairKey, suggestMerges: suggestMerges, monthCompare: monthCompare
+    priceAlerts: priceAlerts, configure: configure, resolveKey: resolveKey, pairKey: pairKey, suggestMerges: suggestMerges, monthCompare: monthCompare
   };
 });

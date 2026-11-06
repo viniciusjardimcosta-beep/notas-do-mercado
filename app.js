@@ -123,6 +123,8 @@
     return !!(r.date && r.items.length && !r.warnings.length && !r.items.some(function (i) { return i.check; }) &&
       (!r.chave || NFParser.parseChave(r.chave).valid));
   }
+  let alertas = null; // preços que subiram na última nota salva (só na memória)
+  function registrarAlertas(rec) { alertas = { itens: Core.priceAlerts(S.purchases, rec.id) }; }
   let toastTimer = null;
   function toast(text, undo) {
     const old = document.getElementById('toast'); if (old) old.remove();
@@ -177,6 +179,18 @@
         h('p', { class: 'mute', text: 'Escaneie o QR Code da nota fiscal do mercado. O app lê os itens e mostra, depois de algumas compras, o que subiu de preço e onde dá para cortar.' }),
         h('button', { class: 'primary', text: 'Adicionar nota', onclick: function () { tab = 'add'; render(); } })));
       return;
+    }
+    if (alertas && alertas.itens.length) {
+      const ca = h('div', { class: 'card' }, h('strong', { text: 'O que ficou mais caro nesta nota' }),
+        h('div', { class: 'mute', text: 'Comparado com a última vez que você comprou cada produto.' }));
+      alertas.itens.slice(0, 5).forEach(function (a) {
+        ca.append(h('div', { class: 'row' },
+          h('div', { class: 'n' }, a.nome, h('div', { class: 'mute', text: brl(a.de) + ' → ' + brl(a.para) + ' por ' + a.rotulo + (a.suspeito ? ' · pode ser fim de promoção' : '') })),
+          h('div', { class: 'v up', text: pct(a.pct) })));
+      });
+      if (alertas.itens.length > 5) ca.append(h('div', { class: 'mute', text: 'e mais ' + (alertas.itens.length - 5) + ' (veja em Preços).' }));
+      ca.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Ok', onclick: function () { alertas = null; render(); } })));
+      view.append(ca);
     }
     if (needsBackup()) {
       view.append(h('div', { class: 'card' }, h('strong', { text: 'Faça um backup' }),
@@ -315,9 +329,10 @@
     if (isDup(r)) return say(msg, 'Essa nota já estava salva (' + dataBR(r.date) + ', ' + brl(r.total) + ').', true);
     if (S.auto && autoOk(r)) {
       const rec = commit(r, r.date, r.store.name);
+      registrarAlertas(rec);
       pending = null; tab = 'home'; render();
       toast('Nota salva: ' + rec.items.length + ' itens, ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () {
-        S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); save(); render();
+        S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); alertas = null; save(); render();
       });
       return;
     }
@@ -402,7 +417,8 @@
       h('button', { class: 'primary', text: 'Salvar nota', disabled: dup, onclick: function () {
         const iso = NFParser.toISODate(dateInp.value) || r.date;
         if (!iso) { dateInp.focus(); return alert('Informe a data da compra (dd/mm/aaaa).'); }
-        commit(r, iso, storeInp.value.trim());
+        const rec = commit(r, iso, storeInp.value.trim());
+        registrarAlertas(rec);
         pending = null; tab = 'home'; render();
       } })));
   }
