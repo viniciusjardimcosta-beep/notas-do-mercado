@@ -11,7 +11,7 @@
   };
   const VERSION = '0.3';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '' };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {} };
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
@@ -143,6 +143,7 @@
 
   function render() {
     stopScan();
+    Core.configure({ merges: S.merges, separate: S.separate, names: S.names, noMerge: S.noMerge });
     view.replaceChildren();
     document.querySelectorAll('nav button').forEach(function (b) {
       if (b.dataset.t === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -186,13 +187,16 @@
     }
     const months = Core.monthlyTotals(S.purchases);
     const last = months[months.length - 1];
-    const prev = months[months.length - 2];
     const card1 = h('div', { class: 'card' },
       h('div', { class: 'mute', text: last ? 'Gasto em ' + mesBR(last.mes) : 'Gasto' }),
       h('div', { class: 'big', text: last ? brl(last.total) : '—' }));
-    if (prev && last) {
-      const d = (last.total - prev.total) / prev.total * 100;
-      card1.append(h('div', { class: 'mute' }, 'Mês anterior (' + mesBR(prev.mes) + '): ' + brl(prev.total) + ' ', h('span', { class: d > 0 ? 'up' : 'down', text: pct(d) })));
+    const mc = Core.monthCompare(S.purchases);
+    if (mc && mc.ok) {
+      card1.append(h('div', { class: 'mute' },
+        (mc.ate ? 'Mesmo período do mês anterior (até o dia ' + mc.ate + ' de ' + mesBR(mc.anterior.mes) + '): ' : 'Mês anterior (' + mesBR(mc.anterior.mes) + '): ') + brl(mc.anterior.total) + ' ',
+        h('span', { class: mc.pct > 0 ? 'up' : 'down', text: pct(mc.pct) })));
+    } else if (last) {
+      card1.append(h('div', { class: 'mute', text: 'A comparação com o mês anterior aparece quando houver pelo menos 2 notas em cada mês.' }));
     }
     view.append(card1);
 
@@ -437,11 +441,60 @@
       h('div', { class: 'mute', text: 'Primeiro preço comparado ao último, por kg, litro ou unidade. Produtos parecidos são agrupados pelo nome; confira se faz sentido.' }));
     if (!ch.length) card.append(h('p', { text: 'Ainda não há produtos comprados em duas datas diferentes.' }));
     ch.slice(0, 15).forEach(function (c) {
+      const acoes = h('div', { class: 'flex', style: 'margin-top:6px;gap:6px' },
+        h('button', { class: 'sm', text: 'Renomear', onclick: function () {
+          const novo = prompt('Novo nome do produto (vazio volta ao original):', c.nome);
+          if (novo === null) return;
+          if (novo.trim()) S.names[c.key] = novo.trim(); else delete S.names[c.key];
+          save(); render();
+        } }),
+        c.rawKeys.length > 1 ? h('button', { class: 'sm', text: 'Separar', onclick: function () {
+          c.rawKeys.forEach(function (rk) { if (rk === c.key) return; if (S.merges[rk]) delete S.merges[rk]; else S.separate[rk] = true; });
+          save(); render();
+        } }) : null);
       card.append(h('div', { class: 'row' },
-        h('div', { class: 'n' }, c.nome, h('div', { class: 'mute', text: brl(c.de) + ' → ' + brl(c.para) + ' por ' + c.rotulo })),
+        h('div', { class: 'n' }, c.nome,
+          h('div', { class: 'mute', text: brl(c.de) + ' → ' + brl(c.para) + ' por ' + c.rotulo }),
+          c.nomes.length > 1 ? h('div', { class: 'mute', text: 'Junta: ' + c.nomes.slice(0, 3).join(' · ') }) : null,
+          acoes),
         h('div', { class: 'v ' + (c.pct > 0 ? 'up' : 'down'), text: pct(c.pct) })));
     });
     view.append(card);
+
+    const unir = function (de, para) {
+      de.rawKeys.forEach(function (rk) { if (Core.resolveKey(para.key) !== rk) S.merges[rk] = para.key; });
+      save(); render();
+    };
+    const sug = Core.suggestMerges(S.purchases, 3);
+    if (sug.length) {
+      const cs = h('div', { class: 'card' }, h('h2', { text: 'Será que são o mesmo produto?' }),
+        h('div', { class: 'mute', text: 'Se unir, o app passa a comparar o preço dos dois.' }));
+      sug.forEach(function (x) {
+        const menor = x.a.compras.length <= x.b.compras.length ? x.a : x.b, maior = menor === x.a ? x.b : x.a;
+        cs.append(h('div', { class: 'row', style: 'display:block' },
+          h('div', null, x.a.nome + ' (' + x.a.compras.length + ')'), h('div', { class: 'mute', text: 'e' }), h('div', null, x.b.nome + ' (' + x.b.compras.length + ')'),
+          h('div', { class: 'flex', style: 'margin-top:8px' },
+            h('button', { class: 'primary', text: 'Unir', onclick: function () { unir(menor, maior); } }),
+            h('button', { text: 'Não são', onclick: function () { S.noMerge[Core.pairKey(x.a.key, x.b.key)] = true; save(); render(); } }))));
+      });
+      view.append(cs);
+    }
+    const todos = Core.buildProducts(S.purchases).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    if (todos.length > 1) {
+      const selA = h('select', { 'aria-label': 'Produto a unir' }), selB = h('select', { 'aria-label': 'Unir com' });
+      todos.forEach(function (pr, i) {
+        const t = pr.nome + ' (' + pr.compras.length + ')';
+        selA.append(h('option', { value: i }, t)); selB.append(h('option', { value: i }, t));
+      });
+      view.append(h('details', { class: 'card' }, h('summary', { text: 'Unir produtos manualmente' }),
+        h('div', { class: 'mute', text: 'Escolha dois produtos que são o mesmo item com nomes diferentes. O primeiro passa a contar como o segundo.' }),
+        h('label', { text: 'Produto' }), selA, h('label', { text: 'É o mesmo que' }), selB,
+        h('div', { style: 'margin-top:10px' }, h('button', { class: 'primary', text: 'Unir', onclick: function () {
+          const a = todos[+selA.value], b = todos[+selB.value];
+          if (a.key === b.key) return toast('Escolha dois produtos diferentes.');
+          unir(a, b);
+        } }))));
+    }
     const sc = Core.storeCompare(S.purchases);
     const card2 = h('div', { class: 'card' }, h('h2', { text: 'Onde ficou mais barato' }),
       h('div', { class: 'mute', text: 'Só para produtos que você comprou em 2 ou mais lojas.' }));
@@ -484,6 +537,11 @@
       h('div', { style: 'margin-top:10px' }, h('button', { text: 'Refazer categorias automáticas', onclick: function () {
         if (!confirm('Apagar suas correções de categoria e refazer automaticamente?')) return;
         S.overrides = {}; save(); render(); toast('Categorias refeitas.');
+      } })),
+      h('div', { class: 'mute', style: 'margin-top:14px', text: 'Também dá para desfazer as uniões, separações e nomes que você deu aos produtos na tela Preços.' }),
+      h('div', { style: 'margin-top:8px' }, h('button', { text: 'Desfazer ajustes de produtos', onclick: function () {
+        if (!confirm('Desfazer todas as uniões, separações e nomes de produtos?')) return;
+        S.merges = {}; S.separate = {}; S.names = {}; S.noMerge = {}; save(); render(); toast('Ajustes de produtos desfeitos.');
       } }))));
 
     const obs = h('input', { type: 'text', placeholder: 'O que deu errado? (ex.: faltaram itens)', 'aria-label': 'O que deu errado' });

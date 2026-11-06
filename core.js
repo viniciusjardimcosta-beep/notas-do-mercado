@@ -108,16 +108,30 @@
   // Agrupa itens em produtos: mesmo código de barras (se parecer GTIN) ou nome normalizado parecido.
   function looksLikeGtin(code) { return /^\d{8}$|^\d{12,14}$/.test(code || ''); }
 
+  // Ajustes do usuário sobre o agrupamento de produtos (guardados no aparelho pelo app).
+  let USER = { merges: {}, separate: {}, names: {}, noMerge: {} };
+  function configure(c) {
+    c = c || {};
+    USER = { merges: c.merges || {}, separate: c.separate || {}, names: c.names || {}, noMerge: c.noMerge || {} };
+  }
+  function resolveKey(k) { let n = 0; while (USER.merges[k] && n++ < 5) k = USER.merges[k]; return k; }
+  function pairKey(a, b) { return [a, b].sort().join('|'); }
+
   function buildProducts(purchases) {
     const products = [];
     const byGtin = {}, byKey = {};
     purchases.forEach(function (p) {
       p.items.forEach(function (it) {
         const n = normalizeName(it.nome);
+        const alvo = resolveKey(n.key);
+        const unido = alvo !== n.key;                      // o usuário uniu este nome a outro produto
+        const separado = !unido && !!USER.separate[n.key]; // o usuário pediu para não agrupar
+        const chaveGrupo = unido ? alvo : (separado ? n.key + '#sep' : n.key);
         let prod = null;
-        if (looksLikeGtin(it.codigo) && byGtin[it.codigo]) prod = byGtin[it.codigo];
-        if (!prod && byKey[n.key]) prod = byKey[n.key];
-        if (!prod) {
+        if (unido || separado) prod = byKey[chaveGrupo] || null;
+        if (!unido && !separado && looksLikeGtin(it.codigo) && byGtin[it.codigo]) prod = byGtin[it.codigo];
+        if (!unido && !separado && !prod && byKey[n.key]) prod = byKey[n.key];
+        if (!unido && !separado && !prod) {
           for (let i = 0; i < products.length; i++) {
             const c = products[i];
             const sameSize = (!c.size && !n.size) || (c.size && n.size && c.size.valor === n.size.valor && c.size.unidade === n.size.unidade);
@@ -125,11 +139,13 @@
           }
         }
         if (!prod) {
-          prod = { id: 'p' + products.length, nome: it.nome, key: n.key, words: n.words, size: n.size, categoria: categorize(it.nome), compras: [] };
+          prod = { id: 'p' + products.length, nome: it.nome, key: chaveGrupo, words: n.words, size: n.size, categoria: categorize(it.nome), compras: [], rawKeys: [], nomes: [] };
           products.push(prod);
         }
-        if (looksLikeGtin(it.codigo)) byGtin[it.codigo] = prod;
-        byKey[n.key] = prod;
+        if (!separado && looksLikeGtin(it.codigo)) byGtin[it.codigo] = prod;
+        byKey[chaveGrupo] = prod;
+        if (prod.rawKeys.indexOf(n.key) < 0) prod.rawKeys.push(n.key);
+        if (prod.nomes.indexOf(it.nome) < 0) prod.nomes.push(it.nome);
         prod.compras.push({
           data: p.date, loja: (p.store && p.store.name) || '', cnpj: (p.store && p.store.cnpj) || '',
           qtd: it.qtd, un: it.un, vlUnit: it.vlUnit, vlTotal: it.vlTotal, nota: p.id, nome: it.nome
@@ -137,6 +153,7 @@
       });
     });
     products.forEach(function (pr) {
+      if (USER.names[pr.key]) pr.nome = USER.names[pr.key];
       pr.compras.sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); });
     });
     return products;
@@ -185,6 +202,49 @@
     return Object.keys(m).sort().map(function (k) { return { mes: k, total: Math.round(m[k] * 100) / 100 }; });
   }
 
+  // Pares de produtos parecidos demais para ignorar e diferentes demais para o app juntar sozinho.
+  function suggestMerges(purchases, limit) {
+    const prods = buildProducts(purchases);
+    const out = [];
+    for (let i = 0; i < prods.length; i++) {
+      for (let j = i + 1; j < prods.length; j++) {
+        const a = prods[i], b = prods[j];
+        const sameSize = (!a.size && !b.size) || (a.size && b.size && a.size.valor === b.size.valor && a.size.unidade === b.size.unidade);
+        if (!sameSize || a.categoria !== b.categoria) continue;
+        if (USER.noMerge[pairKey(a.key, b.key)]) continue;
+        const sim = similarity(a.words, b.words);
+        if (sim >= 0.5 && sim < 1) out.push({ a: a, b: b, sim: sim });
+      }
+    }
+    out.sort(function (x, y) { return y.sim - x.sim; });
+    return out.slice(0, limit || 3);
+  }
+
+  // Compara o mês atual com o anterior de forma justa: mesmo período (até o mesmo dia) quando o mês ainda está em andamento,
+  // e só quando há pelo menos 2 notas em cada lado.
+  function monthCompare(purchases, now) {
+    now = now || new Date();
+    const datas = purchases.map(function (p) { return monthKey(p.date); }).filter(Boolean).sort();
+    if (!datas.length) return null;
+    const cur = datas[datas.length - 1];
+    const y = +cur.slice(0, 4), m = +cur.slice(5, 7);
+    const prev = m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0');
+    const emAndamento = cur === now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const ate = emAndamento ? now.getDate() : 31;
+    const soma = function (mes, limite) {
+      let total = 0, notas = 0;
+      purchases.forEach(function (p) {
+        if (monthKey(p.date) !== mes) return;
+        if (+String(p.date).slice(8, 10) > limite) return;
+        total += p.total; notas++;
+      });
+      return { mes: mes, total: Math.round(total * 100) / 100, notas: notas };
+    };
+    const atual = soma(cur, 31), anterior = soma(prev, ate);
+    const ok = atual.notas >= 2 && anterior.notas >= 2 && anterior.total > 0;
+    return { atual: atual, anterior: anterior, ate: emAndamento ? ate : null, ok: ok, pct: ok ? (atual.total - anterior.total) / anterior.total * 100 : null };
+  }
+
   // Variação de preço por produto: primeiro vs último preço comparável, com pelo menos 2 compras em datas diferentes.
   function priceChanges(purchases) {
     const out = [];
@@ -196,7 +256,7 @@
       if (!a.valor || !b.valor) return;
       const pct = (b.valor - a.valor) / a.valor * 100;
       out.push({
-        id: pr.id, nome: pr.nome, rotulo: a.rotulo, de: a.valor, para: b.valor, pct: pct,
+        id: pr.id, key: pr.key, rawKeys: pr.rawKeys, nomes: pr.nomes, nome: pr.nome, rotulo: a.rotulo, de: a.valor, para: b.valor, pct: pct,
         dataDe: first.data, dataPara: last.data, lojaDe: first.loja, lojaPara: last.loja, categoria: pr.categoria,
         compras: pr.compras.length
       });
@@ -261,6 +321,7 @@
   return {
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
-    priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential
+    priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,
+    configure: configure, resolveKey: resolveKey, pairKey: pairKey, suggestMerges: suggestMerges, monthCompare: monthCompare
   };
 });
