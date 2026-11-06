@@ -425,9 +425,10 @@
       h('div', { class: 'mute', text: 'Quando a soma dos itens bate com o total e a chave confere, a nota é salva direto, com um botão Desfazer por 8 segundos. Se algo não bater, o app mostra a tela de conferência.' }),
       h('div', { class: 'row' }, h('label', { for: 'auto', style: 'margin:0;color:inherit;font-size:16px;flex:1' }, 'Salvar sem pedir confirmação'), autoCb)));
 
-    const proxy = h('input', { type: 'url', value: S.proxy, placeholder: CFG.proxy || 'https://notas-proxy.seunome.workers.dev', inputmode: 'url' });
-    view.append(h('div', { class: 'card' }, h('h2', { text: 'Proxy de leitura (avançado)' }),
-      h('div', { class: 'mute', text: 'Já vem configurado. Só mude se você mesmo hospeda o proxy (veja o README). Ele só repassa a página pública da nota; não guarda nada. Vazio = usa o padrão do app.' }),
+    // Avançado: fica recolhido e sem mostrar o endereço padrão
+    const proxy = h('input', { type: 'url', value: S.proxy, placeholder: 'https://…workers.dev (deixe vazio para usar o padrão)', inputmode: 'url' });
+    view.append(h('details', { class: 'card' }, h('summary', { text: 'Avançado: proxy de leitura' }),
+      h('div', { class: 'mute', text: 'O app já vem configurado. Só preencha se você mesmo hospeda o proxy (veja o README). Vazio = usa o padrão.' }),
       h('div', { style: 'margin-top:8px' }, proxy),
       h('div', { style: 'margin-top:8px' }, h('button', { class: 'primary', text: 'Salvar', onclick: function () { S.proxy = proxy.value.trim(); save(); alert('Salvo.'); } }))));
 
