@@ -213,7 +213,11 @@
         if (!sameSize || a.categoria !== b.categoria) continue;
         if (USER.noMerge[pairKey(a.key, b.key)]) continue;
         const sim = similarity(a.words, b.words);
-        if (sim >= 0.5 && sim < 1) out.push({ a: a, b: b, sim: sim });
+        // só quando um nome contém todas as palavras do outro (ex.: "LEITE INTEGRAL PARMALAT" e "LEITE INTEGRAL").
+        // Sabores ou variações diferentes (cada um com uma palavra própria) não são sugeridos.
+        const menor = a.words.length <= b.words.length ? a.words : b.words, maior = menor === a.words ? b.words : a.words;
+        const contido = menor.every(function (w) { return maior.indexOf(w) >= 0; });
+        if (contido && sim >= 0.5 && sim < 1) out.push({ a: a, b: b, sim: sim });
       }
     }
     out.sort(function (x, y) { return y.sim - x.sim; });
