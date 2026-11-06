@@ -110,6 +110,8 @@
       }
       prevEnd = m.index + m[0].length;
       nome = nome.replace(/\s+/g, ' ').trim();
+      // páginas reais repetem "Vl. Total 17,90" depois do item: isso não é nome de produto
+      nome = nome.replace(/^(?:Vl\.?\s*(?:Total|Unit\.?)\s*:?\s*(?:R\$\s*)?[\d.,]+\s*)+/i, '').trim();
       if (!nome) continue;
       items.push({ nome: nome, codigo: m[1], qtd: num(m[2]), un: m[3].toUpperCase(), vlUnit: num(m[4]), vlTotal: num(m[5]) });
     }
