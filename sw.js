@@ -1,6 +1,6 @@
 /* Service worker: deixa o app abrir sem internet. Não guarda dados de compras (esses ficam no aparelho). */
-const CACHE = 'notas-v1';
-const FILES = ['./', './index.html', './app.js', './parser.js', './core.js', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'notas-v2';
+const FILES = ['./', './index.html', './app.js', './parser.js', './core.js', './manifest.webmanifest', './icon.svg', './privacidade.html'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

@@ -9,11 +9,37 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true };
+  const VERSION = '0.3';
+  const CFG = window.NOTAS_CONFIG || {};
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false };
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
   function save() { store.set(JSON.stringify(S)); }
+  // Endereço do proxy: o que a pessoa digitou em Ajustes ou, se vazio, o padrão do app (index.html).
+  function proxyUrl() { return S.proxy || CFG.proxy || ''; }
+
+  // ---------- relatório de problema (sem CPF) ----------
+  let lastRead = null; // última nota lida nesta sessão (só na memória)
+  function plainText(str) {
+    str = String(str || '');
+    if (/<(html|body|table|div|span)\b/i.test(str) && typeof DOMParser !== 'undefined') {
+      const doc = new DOMParser().parseFromString(str, 'text/html');
+      doc.querySelectorAll('script,style,noscript').forEach(function (e) { e.remove(); });
+      str = (doc.body ? doc.body.textContent : '') || '';
+    }
+    return str.replace(/[ \t\u00a0]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+  }
+  function scrubCpf(t) {
+    return String(t || '')
+      .replace(/(CPF[^0-9\n]{0,20})(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/gi, '$1[removido]')
+      .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '[CPF removido]');
+  }
+  function buildReport(obs, text) {
+    return ['Relatório do Notas do Mercado', 'Versão: ' + VERSION, 'Data: ' + new Date().toISOString().slice(0, 10),
+      'Resultado da leitura: ' + (lastRead && lastRead.summary ? lastRead.summary : 'não informado'),
+      'O que deu errado: ' + (obs || 'não informado'), '', '--- texto da nota ---', scrubCpf(text).slice(0, 60000)].join('\n');
+  }
 
   // ---------- utilidades ----------
   const brl = function (n) { return (n == null || isNaN(n)) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };
@@ -101,6 +127,19 @@
 
   // ---------- Resumo ----------
   function viewHome() {
+    if (!S.seen && !S.purchases.length) {
+      view.append(h('div', { class: 'card' },
+        h('div', { class: 'big', text: 'Bem-vindo' }),
+        h('p', { text: 'O Notas do Mercado lê a nota fiscal das suas compras e mostra para onde vai o dinheiro, o que subiu de preço e quanto dá para economizar.' }),
+        h('p', null, h('strong', { text: '1. ' }), 'Toque em Adicionar e escaneie o QR Code da nota (NFC-e).'),
+        h('p', null, h('strong', { text: '2. ' }), 'Confira o resultado. Se tudo bater, o app salva sozinho.'),
+        h('p', null, h('strong', { text: '3. ' }), 'Depois de algumas compras, veja Resumo e Preços.'),
+        h('div', { class: 'warn', text: 'Este app está em teste: confira os valores e avise se algo vier errado (Ajustes → Enviar problema).' }),
+        h('p', { class: 'mute' }, 'Suas compras ficam só neste aparelho. Ao ler uma nota, o endereço dela passa por um serviço de leitura que não guarda nada. ',
+          h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }), '.'),
+        h('button', { class: 'primary', text: 'Entendi, começar', onclick: function () { S.seen = true; save(); tab = 'add'; render(); } })));
+      return;
+    }
     if (!S.purchases.length) {
       view.append(h('div', { class: 'card' },
         h('div', { class: 'big', text: 'Comece pela primeira nota' }),
@@ -184,7 +223,7 @@
         h('div', { class: 'mute', text: 'Abra a nota no navegador, selecione tudo, copie e cole aqui. Serve quando o site da SEFAZ pede CAPTCHA.' }),
         h('div', { style: 'margin-top:8px' }, ta), h('div', { style: 'margin-top:8px' }, btnTxt)),
       msg);
-    if (!S.proxy) msg.append(h('div', { class: 'warn', text: 'Para buscar a nota pelo endereço, configure o proxy em Ajustes. Sem ele, use o plano B (colar o texto).' }));
+    if (!proxyUrl()) msg.append(h('div', { class: 'warn', text: 'Para buscar a nota pelo endereço, configure o proxy em Ajustes. Sem ele, use o plano B (colar o texto).' }));
   }
 
   function say(msg, text, isWarn) {
@@ -200,7 +239,7 @@
       if (chave) return say(msg, 'Só com a chave não dá para buscar a nota: cada estado tem um site. Cole o endereço completo do QR Code ou use o plano B.', true);
       return say(msg, 'Não achei um endereço nem uma chave de 44 dígitos.', true);
     }
-    if (!S.proxy) {
+    if (!proxyUrl()) {
       const campo = view.querySelector('input[type=text]');
       if (campo) campo.value = urlMatch[0];
       msg.replaceChildren(
@@ -211,7 +250,8 @@
     }
     say(msg, 'Buscando a nota…');
     try {
-      const res = await fetch(S.proxy + (S.proxy.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
+      const px = proxyUrl();
+      const res = await fetch(px + (px.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
       if (!res.ok) return say(msg, 'O site da SEFAZ respondeu com erro ' + res.status + '. Tente o plano B.', true);
       const text = await res.text();
       handleText(text, msg, raw);
@@ -225,8 +265,10 @@
     if (/captcha|n[ãa]o sou um rob[ôo]/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
       return say(msg, 'O site pediu CAPTCHA. Abra a nota no navegador, resolva, copie o texto e use o plano B.', true);
     }
+    lastRead = { text: plainText(text), summary: 'lendo' };
     let r;
-    try { r = NFParser.parseAny(text); } catch (e) { return say(msg, 'Erro ao ler a nota: ' + e.message, true); }
+    try { r = NFParser.parseAny(text); } catch (e) { lastRead.summary = 'erro: ' + e.message; return say(msg, 'Erro ao ler a nota: ' + e.message, true); }
+    lastRead.summary = r.items.length + ' itens, total ' + r.total + (r.uf ? ', ' + r.uf : '') + (r.warnings.length ? ', avisos: ' + r.warnings.join(' | ') : '');
     if (!r.items.length) return say(msg, 'Não consegui achar itens nessa página. Se o texto da nota estiver na tela, use o plano B e me mande um exemplo para eu ajustar o leitor (sem CPF).', true);
     if (!r.chave) { const k = NFParser.extractChave(origem); if (k) r.chave = k; }
     if (isDup(r)) return say(msg, 'Essa nota já estava salva (' + dataBR(r.date) + ', ' + brl(r.total) + ').', true);
@@ -383,9 +425,9 @@
       h('div', { class: 'mute', text: 'Quando a soma dos itens bate com o total e a chave confere, a nota é salva direto, com um botão Desfazer por 8 segundos. Se algo não bater, o app mostra a tela de conferência.' }),
       h('div', { class: 'row' }, h('label', { for: 'auto', style: 'margin:0;color:inherit;font-size:16px;flex:1' }, 'Salvar sem pedir confirmação'), autoCb)));
 
-    const proxy = h('input', { type: 'url', value: S.proxy, placeholder: 'https://notas-proxy.seunome.workers.dev', inputmode: 'url' });
-    view.append(h('div', { class: 'card' }, h('h2', { text: 'Proxy de leitura' }),
-      h('div', { class: 'mute', text: 'Endereço do seu Cloudflare Worker (veja o README). Ele só repassa a página pública da nota; não guarda nada.' }),
+    const proxy = h('input', { type: 'url', value: S.proxy, placeholder: CFG.proxy || 'https://notas-proxy.seunome.workers.dev', inputmode: 'url' });
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Proxy de leitura (avançado)' }),
+      h('div', { class: 'mute', text: 'Já vem configurado. Só mude se você mesmo hospeda o proxy (veja o README). Ele só repassa a página pública da nota; não guarda nada. Vazio = usa o padrão do app.' }),
       h('div', { style: 'margin-top:8px' }, proxy),
       h('div', { style: 'margin-top:8px' }, h('button', { class: 'primary', text: 'Salvar', onclick: function () { S.proxy = proxy.value.trim(); save(); alert('Salvo.'); } }))));
 
@@ -398,6 +440,35 @@
       card.append(h('div', { class: 'row' }, h('label', { for: 'c_' + c.id, style: 'margin:0;color:inherit;font-size:16px;flex:1' }, c.nome), cb));
     });
     view.append(card);
+
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Refazer categorias' }),
+      h('div', { class: 'mute', text: 'Apaga as correções de categoria que você fez à mão e deixa o app decidir de novo, com a lista mais recente de palavras.' }),
+      h('div', { style: 'margin-top:10px' }, h('button', { text: 'Refazer categorias automáticas', onclick: function () {
+        if (!confirm('Apagar suas correções de categoria e refazer automaticamente?')) return;
+        S.overrides = {}; save(); render(); toast('Categorias refeitas.');
+      } }))));
+
+    const obs = h('input', { type: 'text', placeholder: 'O que deu errado? (ex.: faltaram itens)', 'aria-label': 'O que deu errado' });
+    const rep = h('textarea', { placeholder: 'O texto da nota aparece aqui depois da última leitura, sem CPF. Você também pode colar o texto da nota.', 'aria-label': 'Texto do relatório' });
+    rep.value = lastRead ? scrubCpf(lastRead.text).slice(0, 60000) : '';
+    const doShare = function () {
+      const txt = buildReport(obs.value.trim(), rep.value);
+      if (navigator.share) navigator.share({ title: 'Relatório Notas do Mercado', text: txt }).catch(function () {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Relatório copiado.'); }, function () { alert('Não consegui copiar. Selecione o texto e copie.'); });
+    };
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Enviar problema' }),
+      h('div', { class: 'mute', text: 'Se uma nota veio errada ou não foi lida, gere um relatório e mande para quem está testando o app com você. O app tira o CPF do texto, mas confira se não sobrou seu nome ou CPF antes de enviar.' }),
+      h('div', { style: 'margin-top:8px' }, obs), h('div', { style: 'margin-top:8px' }, rep),
+      h('div', { class: 'flex', style: 'margin-top:8px' },
+        h('button', { class: 'primary', text: 'Compartilhar relatório', onclick: doShare }),
+        h('button', { text: 'Copiar', onclick: function () {
+          const txt = buildReport(obs.value.trim(), rep.value);
+          if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Relatório copiado.'); }, function () { alert('Não consegui copiar.'); });
+        } }))));
+
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Sobre' }),
+      h('div', { class: 'mute', text: 'Notas do Mercado, versão ' + VERSION + '. Em teste.' }),
+      h('div', { style: 'margin-top:8px' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }))));
 
     const imp = h('input', { type: 'file', accept: 'application/json', hidden: true });
     imp.addEventListener('change', function () {

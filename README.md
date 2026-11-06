@@ -1,2 +1,107 @@
-# notas-do-mercado
-Controle de gastos do mercado pela nota fiscal (NFC-e)
+# Notas do Mercado (MVP)
+
+App web instalável que lê a nota fiscal do mercado (NFC-e), guarda os itens **só no seu celular** e mostra:
+
+- gasto por mês e por categoria;
+- o que subiu de preço (por kg, litro ou unidade);
+- sua "inflação do mercado" (média ponderada dos produtos que você repetiu);
+- quanto você economizaria cortando X% das categorias que **você** marcou como cortáveis;
+- onde um produto saiu mais barato, quando você comprou em mais de uma loja.
+
+Sem login, sem servidor de dados, sem anúncios. O único componente externo é um proxy de leitura (veja abaixo).
+
+## O que foi testado e o que NÃO foi
+
+Testado aqui (`node tests/unit.test.js`, `node tests/worker.test.js` com rede simulada e `node tests/browser.test.js`): chave de acesso e dígito verificador, leitura de texto de nota, normalização de nomes, cálculos, fluxo da interface no Chromium, persistência e proteção contra HTML injetado.
+
+**Não testado:** páginas reais da SEFAZ de RS, SC, PR e SP. Não consegui acessá-las daqui, e os HTMLs dos testes são sintéticos, feitos de memória do layout comum. **É por isso que existe a semana 0 abaixo.** O leitor tem 3 estratégias e avisa quando a soma dos itens não bate com o total, mas só nota real diz se funciona.
+
+Também não testado: a câmera (precisa de celular) e o proxy no ar.
+
+## Semana 0: testar com notas reais (faça antes de qualquer outra coisa)
+
+1. Publique o app e o proxy (passos abaixo).
+2. Com 20 notas de verdade (5 de cada estado, de mercados diferentes), use **Adicionar → Escanear**.
+3. Anote para cada nota: leu todos os itens? o total bateu? o nome dos itens veio legível?
+4. Se alguma falhar, abra a nota no navegador, copie o texto e use o plano B (opção 3). Se o plano B também falhar, me mande o texto da nota **sem o CPF** que eu ajusto o leitor.
+
+Meta do plano: 90% das notas lidas completas. Abaixo de 70%, o risco técnico é grande demais.
+
+## Como rodar no computador
+
+```bash
+cd app
+python3 -m http.server 8080
+# abra http://localhost:8080
+```
+
+A câmera só funciona em `https` ou `localhost`.
+
+## Como publicar de graça
+
+**1. O app (pasta `app/`)**: qualquer hospedagem de arquivos estáticos com https. Opções: Cloudflare Pages, GitHub Pages ou Netlify. Arraste a pasta `app/` ou aponte o repositório. No celular, abra o endereço e use "Adicionar à tela inicial".
+
+**2. O proxy (pasta `worker/`)**: o navegador não consegue ler as páginas da SEFAZ direto (bloqueio CORS), então um proxy minúsculo busca a página pública e devolve o texto.
+
+**Pelo painel da Cloudflare (sem instalar nada):**
+
+1. Crie uma conta em dash.cloudflare.com (e-mail e senha; confirme o e-mail).
+2. No menu da esquerda: **Workers & Pages → Create → Create Worker**. Deixe o exemplo "Hello World", dê o nome `notas-proxy` e clique **Deploy**.
+3. Clique em **Edit code**, apague tudo, cole o conteúdo inteiro de `worker/worker.js` e clique **Deploy**.
+4. Copie o endereço do Worker (algo como `https://notas-proxy.SEUNOME.workers.dev`) e cole em **Ajustes → Proxy de leitura** no app.
+
+(Os nomes dos botões podem mudar; a Cloudflare altera o painel de tempos em tempos.) Pelo terminal também funciona: `cd worker && npx wrangler login && npx wrangler deploy`.
+
+**Custo:** segundo a documentação da Cloudflare, o plano grátis do Workers inclui 100.000 requisições por dia e 10 ms de CPU por chamada, bem acima do uso pessoal. A página não diz se o cadastro pede cartão de crédito. Confira na hora do cadastro.
+
+**Segurança:** o proxy só responde ao site do app (`ALLOWED_ORIGIN` no topo do `worker.js`; se mudar o endereço do app, mude lá também), só busca endereços `.gov.br` de fazenda/sefaz, não guarda nem registra nada. Os domínios de SP, PR e SC na lista de permitidos foram escritos de memória e não foram conferidos: se uma nota de algum estado for recusada com "Site não permitido", me avise.
+
+## Menos trabalho por nota
+
+- **Salvar automático** (Ajustes, ligado por padrão): se a soma dos itens bate com o total, a chave confere e a nota não é repetida, ela é salva direto, com botão **Desfazer** por 8 segundos. Se algo não bater, aparece a tela de conferência.
+- **Com o proxy ligado**, escanear o QR Code basta: o app busca a nota e salva.
+- **Compartilhar para o app** (Android, app instalado): no menu Compartilhar de qualquer app ou navegador, o Notas aparece como destino; o endereço chega e o fluxo acima roda sozinho. Não confirmei se funciona no iPhone.
+- **Categoria por item** (aba Compras): toque na categoria de um item para corrigir. O app lembra para o produto todo, em todas as notas.
+
+## Piloto (v0.3)
+
+- **Proxy padrão:** o endereço do proxy vem embutido no `app/index.html` (`window.NOTAS_CONFIG`), então quem testa não precisa configurar nada. Se mudar o Worker, mude lá.
+- **Boas-vindas:** tela curta na primeira abertura, com aviso de que o app está em teste e link da política de privacidade.
+- **Enviar problema (Ajustes):** gera um relatório com o texto da última nota lida, sem CPF, e abre o menu Compartilhar do celular. Não há servidor de feedback: a pessoa manda para quem coordena o teste.
+- **Refazer categorias:** apaga as correções manuais e reaplica a lista de palavras atual.
+- **`app/privacidade.html`:** rascunho da política. **Preencha o responsável e o contato** (campo entre colchetes) e peça revisão jurídica antes de abrir ao público.
+
+## Limitações conhecidas
+
+- **CAPTCHA:** alguns estados pedem. O app detecta e manda você para o plano B (colar o texto).
+- **Nomes de produto** vêm abreviados (`BISC REC OREO 90G`). O app junta variações pelo código de barras (quando o código parece um GTIN) ou por nome parecido e mesmo tamanho. Erros acontecem: confira a tela **Preços**. Falta uma tela para editar/unir produtos manualmente.
+- **Categorias** são por palavra-chave e simples. Itens fora da lista caem em "Outros".
+- **Dados só no aparelho:** limpar os dados do navegador apaga tudo. Use **Ajustes → Exportar** de vez em quando. Não há sincronização entre aparelhos.
+- A projeção anual de corte usa o período das suas notas; com menos de 4 semanas o app avisa que é grosseira.
+- Sem busca de preço em outras lojas além das que você mesmo comprou.
+
+## Privacidade e LGPD
+
+Os dados de compra ficam no aparelho do usuário e não passam por nenhum servidor seu, o que reduz muito a exposição. Mesmo assim:
+
+- O proxy enxerga o endereço da nota que o usuário consulta (que contém a chave de acesso). Diga isso numa política de privacidade.
+- Se um dia houver login, nuvem, anúncios, parcerias com marcas ou venda de dados agregados, o cenário muda e exige consentimento claro e revisão jurídica **antes**.
+- O CPF pode aparecer na nota. O app não o guarda, mas ele passa pelo texto que o usuário cola: avise para não compartilhar o texto com ninguém.
+
+Isto não é aconselhamento jurídico: peça a revisão de um advogado antes de abrir para o público.
+
+## Estrutura
+
+```
+app/       index.html, app.js (interface), parser.js (leitor da nota), core.js (análises),
+           sw.js (funciona sem internet), manifest e ícone
+worker/    worker.js (proxy) e wrangler.toml
+tests/     unit.test.js (sem navegador) e browser.test.js (precisa de playwright)
+```
+
+## Próximos passos sugeridos (só depois do piloto)
+
+1. Editar nome e categoria de um produto e unir produtos duplicados.
+2. Envio da nota por WhatsApp ou e-mail para reduzir o esforço de escanear.
+3. Leitura da foto da nota (plano B) com modelo de visão, mostrando a imagem ao lado dos dados lidos.
+4. Gráfico de preço por produto ao longo do tempo.

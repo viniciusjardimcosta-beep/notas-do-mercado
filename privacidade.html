@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f6f50">
+<title>Política de privacidade · Notas do Mercado</title>
+<style>
+:root{--bg:#f6f5f1;--ink:#1d2320;--mute:#5d6862;--line:#e3e1d9;--brand:#1f6f50;--warn:#8a5a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#121513;--ink:#eceee9;--mute:#9aa59e;--line:#2c332f;--brand:#3aa57c;--warn:#f1c76a;--warnbg:#3a2f12}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:680px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top)) 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:17px;margin:26px 0 6px}
+p,li{margin:6px 0}
+ul{padding-left:20px}
+.mute{color:var(--mute);font-size:14px}
+.warn{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 12px;margin:14px 0;font-size:14px}
+a{color:var(--brand)}
+</style>
+</head>
+<body>
+<main>
+<p><a href="index.html">← Voltar ao app</a></p>
+<h1>Política de privacidade</h1>
+<div class="mute">Notas do Mercado · versão de teste · atualizada em 06/11/2026</div>
+
+<div class="warn">Este é um app em fase de teste fechado. Este texto é um rascunho e ainda não foi revisado por um advogado.</div>
+
+<h2>Quem é o responsável</h2>
+<p>[PREENCHER: nome do responsável pelo app e e-mail de contato]</p>
+
+<h2>Resumo</h2>
+<ul>
+<li>Suas compras ficam <strong>só no seu aparelho</strong>. Não temos conta, login nem banco de dados de usuários.</li>
+<li>Não usamos anúncios, rastreadores nem estatísticas de uso, e não vendemos nem compartilhamos dados.</li>
+<li>Para ler uma nota, o endereço dela passa por um serviço de leitura (explicado abaixo).</li>
+<li>Você pode exportar ou apagar tudo a qualquer momento em <em>Ajustes</em>.</li>
+</ul>
+
+<h2>Que dados o app usa</h2>
+<ul>
+<li><strong>Dados das notas fiscais (NFC-e):</strong> loja, CNPJ, data, itens, quantidades e valores, lidos do QR Code ou do texto que você cola. São gravados apenas no armazenamento do seu navegador, neste aparelho.</li>
+<li><strong>Suas escolhas:</strong> categorias corrigidas, categorias marcadas como cortáveis, percentual de corte e endereço do proxy, também só no aparelho.</li>
+<li><strong>CPF na nota:</strong> se você pediu CPF na nota, ele pode aparecer na página pública da nota. O app não grava o CPF. Se você usar <em>Enviar problema</em>, o app tenta remover o CPF do texto, mas confira antes de enviar.</li>
+</ul>
+
+<h2>Como a leitura da nota funciona</h2>
+<p>O navegador não consegue abrir sozinho o site da Secretaria da Fazenda (SEFAZ). Por isso, ao ler um QR Code, o app envia o <strong>endereço da nota</strong> (que contém a chave de acesso de 44 dígitos) a um serviço de leitura (um Cloudflare Worker). Ele busca a página pública da nota e devolve o texto ao seu aparelho. Esse serviço não grava o conteúdo da nota nem o associa a você. Como em qualquer infraestrutura de internet, o provedor (Cloudflare) pode manter registros técnicos de rede, como endereço IP, para segurança e funcionamento.</p>
+<p>O serviço só aceita requisições vindas do app e só busca endereços de sites de fazenda/SEFAZ.</p>
+
+<h2>Câmera</h2>
+<p>A câmera é usada somente para ler o QR Code, no próprio aparelho. Nenhuma imagem é gravada ou enviada. Em navegadores sem leitor de QR embutido, o app baixa a biblioteca de código aberto jsQR de um servidor público (cdnjs); isso expõe ao servidor apenas o fato de que o arquivo foi pedido.</p>
+
+<h2>Compartilhamento</h2>
+<p>Não compartilhamos seus dados com terceiros. Só sai do aparelho o que você decidir enviar: por exemplo, ao tocar em <em>Compartilhar relatório</em> ou ao exportar seus dados.</p>
+
+<h2>Seus direitos</h2>
+<ul>
+<li><strong>Acesso e portabilidade:</strong> <em>Ajustes → Exportar</em> gera um arquivo com todos os seus dados.</li>
+<li><strong>Eliminação:</strong> <em>Ajustes → Apagar tudo</em>, ou apague os dados do site no navegador.</li>
+<li><strong>Perda de dados:</strong> como nada fica em servidor, se você limpar os dados do navegador ou trocar de aparelho sem exportar, as compras somem. Exporte de vez em quando.</li>
+</ul>
+<p>Para outros pedidos com base na Lei Geral de Proteção de Dados (Lei 13.709/2018), fale com o responsável pelo contato acima.</p>
+
+<h2>Crianças</h2>
+<p>O app não é voltado a menores de 18 anos.</p>
+
+<h2>Mudanças</h2>
+<p>Se o app passar a ter conta, sincronização na nuvem, anúncios ou qualquer uso novo de dados, esta política será atualizada antes e você será avisado.</p>
+</main>
+</body>
+</html>
