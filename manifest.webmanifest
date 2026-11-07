@@ -1,6 +1,6 @@
 {
-  "name": "Notas do Mercado",
-  "short_name": "Notas",
+  "name": "Caderninho do Mercado",
+  "short_name": "Caderninho",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

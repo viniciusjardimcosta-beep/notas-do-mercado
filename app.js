@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.3';
+  const VERSION = '0.4';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {} };
   let S = (function () {
@@ -38,7 +38,7 @@
       let file = null;
       try { file = new File([json], name, { type: tipos[i] }); } catch (e) { file = null; }
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: 'Backup Notas do Mercado' }); markBackup(); return true; }
+        try { await navigator.share({ files: [file], title: 'Backup Caderninho do Mercado' }); markBackup(); return true; }
         catch (e) { if (e && e.name === 'AbortError') return false; }
       }
     }
@@ -66,7 +66,7 @@
       .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '[CPF removido]');
   }
   function buildReport(obs, text) {
-    return ['Relatório do Notas do Mercado', 'Versão: ' + VERSION, 'Data: ' + new Date().toISOString().slice(0, 10),
+    return ['Relatório do Caderninho do Mercado', 'Versão: ' + VERSION, 'Data: ' + new Date().toISOString().slice(0, 10),
       'Resultado da leitura: ' + (lastRead && lastRead.summary ? lastRead.summary : 'não informado'),
       'O que deu errado: ' + (obs || 'não informado'), '', '--- texto da nota ---', scrubCpf(text).slice(0, 60000)].join('\n');
   }
@@ -163,7 +163,7 @@
     if (!S.seen && !S.purchases.length) {
       view.append(h('div', { class: 'card' },
         h('div', { class: 'big', text: 'Bem-vindo' }),
-        h('p', { text: 'O Notas do Mercado lê a nota fiscal das suas compras e mostra para onde vai o dinheiro, o que subiu de preço e quanto dá para economizar.' }),
+        h('p', { text: 'O Caderninho do Mercado lê a nota fiscal das suas compras e mostra para onde vai o dinheiro, o que subiu de preço e quanto dá para economizar.' }),
         h('p', null, h('strong', { text: '1. ' }), 'Toque em Adicionar e escaneie o QR Code da nota (NFC-e).'),
         h('p', null, h('strong', { text: '2. ' }), 'Confira o resultado. Se tudo bater, o app salva sozinho.'),
         h('p', null, h('strong', { text: '3. ' }), 'Depois de algumas compras, veja Resumo e Preços.'),
@@ -566,7 +566,7 @@
     rep.value = lastRead ? scrubCpf(lastRead.text).slice(0, 60000) : '';
     const doShare = function () {
       const txt = buildReport(obs.value.trim(), rep.value);
-      if (navigator.share) navigator.share({ title: 'Relatório Notas do Mercado', text: txt }).catch(function () {});
+      if (navigator.share) navigator.share({ title: 'Relatório Caderninho do Mercado', text: txt }).catch(function () {});
       else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Relatório copiado.'); }, function () { alert('Não consegui copiar. Selecione o texto e copie.'); });
     };
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Enviar problema' }),
@@ -580,7 +580,7 @@
         } }))));
 
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Sobre' }),
-      h('div', { class: 'mute', text: 'Notas do Mercado, versão ' + VERSION + '. Em teste.' }),
+      h('div', { class: 'mute', text: 'Caderninho do Mercado, versão ' + VERSION + '. Em teste.' }),
       h('div', { style: 'margin-top:8px' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }))));
 
     const imp = h('input', { type: 'file', accept: 'application/json', hidden: true });

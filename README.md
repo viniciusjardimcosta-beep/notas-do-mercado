@@ -1,4 +1,4 @@
-# Notas do Mercado (MVP)
+# Caderninho do Mercado (MVP)
 
 App web instalável que lê a nota fiscal do mercado (NFC-e), guarda os itens **só no seu celular** e mostra:
 
