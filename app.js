@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.9';
+  const VERSION = '0.10';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -216,6 +216,80 @@
     return card;
   }
 
+  // ---------- Cartão de compartilhamento ----------
+  // Só números genéricos: nada de valores gastos, nomes de produto, lojas ou datas.
+  const SITE = 'caderninhodomercado.com.br';
+  function shareStats() {
+    const inf = Core.personalInflation(S.purchases);
+    const enc = Core.shrinkAlerts(S.purchases);
+    return { pct: inf.pct, produtos: inf.produtos, notas: S.purchases.length, encolheu: enc.length };
+  }
+  function drawShareCard(st) {
+    const W = 1080, H = 1350, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f6f5f1'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#1f6f50'; g.fillRect(0, 0, W, 190);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.font = 'bold 62px system-ui, sans-serif'; g.fillText('Caderninho do Mercado', W / 2, 120);
+    g.fillStyle = '#1d2320';
+    let y = 340;
+    if (st.pct != null) {
+      g.font = '500 48px system-ui, sans-serif'; g.fillText('Minha inflação do mercado', W / 2, y);
+      const subiu = st.pct > 0;
+      g.fillStyle = subiu ? '#b3261e' : '#1b7a43';
+      g.font = 'bold 230px system-ui, sans-serif';
+      g.fillText((subiu ? '+' : st.pct < 0 ? '−' : '') + Math.abs(st.pct).toFixed(1).replace('.', ',') + '%', W / 2, y + 260);
+      g.fillStyle = '#5d6862'; g.font = '40px system-ui, sans-serif';
+      g.fillText('nos últimos 12 meses, em ' + st.produtos + ' produtos que eu repeti', W / 2, y + 385);
+      y += 510;
+    } else {
+      g.font = 'bold 64px system-ui, sans-serif'; g.fillText('Estou acompanhando', W / 2, y + 40);
+      g.fillText('o preço do meu mercado', W / 2, y + 120);
+      y += 300;
+    }
+    g.fillStyle = '#1d2320'; g.font = '46px system-ui, sans-serif';
+    g.fillText(st.notas + (st.notas === 1 ? ' nota lida' : ' notas lidas'), W / 2, y);
+    if (st.encolheu > 0) {
+      y += 80;
+      g.fillText(st.encolheu + (st.encolheu === 1 ? ' produto encolheu' : ' produtos encolheram') + ' de tamanho', W / 2, y);
+    }
+    g.fillStyle = '#1f6f50'; g.fillRect(0, H - 210, W, 210);
+    g.fillStyle = '#fff'; g.font = '44px system-ui, sans-serif';
+    g.fillText('Descubra o seu, de graça e sem cadastro', W / 2, H - 120);
+    g.font = 'bold 54px system-ui, sans-serif'; g.fillText(SITE, W / 2, H - 50);
+    return c;
+  }
+  async function shareCard() {
+    const st = shareStats();
+    const canvas = drawShareCard(st);
+    const blob = await new Promise(function (ok) { canvas.toBlob(ok, 'image/png'); });
+    if (!blob) { toast('Não consegui gerar a imagem.'); return; }
+    const file = new File([blob], 'meu-caderninho.png', { type: 'image/png' });
+    const texto = 'Veja quanto o mercado ficou mais caro para você: https://' + SITE;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: texto, title: 'Caderninho do Mercado' }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'meu-caderninho.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    toast('Imagem salva.');
+  }
+  function inviteFriend() {
+    const texto = 'Estou usando o Caderninho do Mercado: ele lê a nota do mercado e mostra o que ficou mais caro, sem cadastro e de graça. Experimente: https://' + SITE;
+    if (navigator.share) navigator.share({ text: texto }).catch(function () {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(texto).then(function () { toast('Convite copiado.'); }, function () { alert('Não consegui copiar.'); });
+  }
+  function shareHomeCard() {
+    const st = shareStats();
+    if (st.pct == null && !st.encolheu) return null;
+    return h('div', { class: 'card' }, h('strong', { text: 'Mostre para um amigo' }),
+      h('div', { class: 'mute', text: 'Gera uma imagem só com a sua inflação e a contagem de notas. Não mostra quanto você gastou, nem produtos ou lojas.' }),
+      h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Compartilhar imagem', onclick: shareCard })));
+  }
+
   function viewHome() {
     if (!S.seen && !S.purchases.length) {
       view.append(h('div', { class: 'card' },
@@ -283,6 +357,8 @@
         h('div', { class: 'mute', text: 'Média ponderada pelo gasto, em ' + inf.produtos + ' produtos que você repetiu, nos últimos 12 meses de notas (até a mais recente). Compare com o IPCA de alimentos do IBGE.' + (inf.excluidos ? ' Deixei de fora ' + inf.excluidos + (inf.excluidos === 1 ? ' produto' : ' produtos') + ' com variação acima de 40% (pode ser promoção).' : '') }));
     }
     view.append(card2);
+    const cs = shareHomeCard();
+    if (cs) view.append(cs);
 
     // corte
     const cp = Core.cutPotential(S.purchases, S.overrides, S.cutMap, S.corte);
@@ -862,6 +938,10 @@
           const txt = buildReport(obs.value.trim(), rep.value);
           if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Relatório copiado.'); }, function () { alert('Não consegui copiar.'); });
         } }))));
+
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Indicar para um amigo' }),
+      h('div', { class: 'mute', text: 'Abre o menu Compartilhar com uma mensagem pronta e o endereço do app.' }),
+      h('div', { style: 'margin-top:8px' }, h('button', { class: 'primary', text: 'Indicar o app', onclick: inviteFriend }))));
 
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Sobre' }),
       h('div', { class: 'mute', text: 'Caderninho do Mercado, versão ' + VERSION + '. Em teste.' }),

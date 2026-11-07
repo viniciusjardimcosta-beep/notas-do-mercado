@@ -80,6 +80,11 @@ A câmera só funciona em `https` ou `localhost`.
 - **Embalagem menor, preço maior:** compara produtos com o mesmo nome e tamanho diferente (3% a 30% menor) em que o preço por kg/litro subiu 3% ou mais. Pode errar quando os dois tamanhos existem juntos; o texto é cauteloso. O preço por kg/litro usa o tamanho do nome de cada compra.
 - **Lista de compras** (Compras → Lista de compras): produtos repetidos em 2 ou mais datas, os que "provavelmente estão acabando" (80% do intervalo médio) primeiro, seleção com estimativa e envio pelo menu Compartilhar. `listaSel` e `listaFora` entram no backup.
 
+## Divulgação embutida (v0.10)
+
+- **Compartilhar imagem** (Resumo, abaixo da inflação): gera um cartão PNG de 1080x1350 com a inflação dos últimos 12 meses, o número de notas lidas e quantos produtos encolheram, mais o endereço do app. Não inclui valores gastos, produtos, lojas nem datas. Só aparece quando há inflação calculada ou embalagem menor. Sem suporte a compartilhar arquivo, baixa a imagem.
+- **Indicar para um amigo** (Ajustes): abre o menu Compartilhar com uma mensagem pronta e o endereço.
+
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
 - Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.
