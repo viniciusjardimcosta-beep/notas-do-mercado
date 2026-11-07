@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.7';
+  const VERSION = '0.7.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0 };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -584,7 +584,7 @@
         const p2 = (agora - r.menor.vlUnit) / r.menor.vlUnit * 100;
         if (Math.abs(p2) < 1) frag.push(h('div', { text: 'Igual ao menor preço que você já pagou.' }));
         else frag.push(h('div', null, h('span', { class: p2 > 0 ? 'up' : 'down', text: pct(p2) }), p2 > 0 ? ' em relação ao menor preço que você já pagou.' : ' abaixo do menor preço que você já pagou.'));
-      } else if (agora < r.ultima.vlUnit * 0.99) {
+      } else if (r.nCompras >= 2 && agora < r.ultima.vlUnit * 0.99) {
         frag.push(h('div', { class: 'down', text: 'Seria o menor preço que você já pagou.' }));
       }
       return frag;
