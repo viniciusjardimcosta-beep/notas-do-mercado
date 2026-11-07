@@ -262,8 +262,14 @@
       const a = unitPrice(pr, first), b = unitPrice(pr, last);
       if (!a.valor || !b.valor) return;
       const pct = (b.valor - a.valor) / a.valor * 100;
+      // histórico completo, para o gráfico: uma linha por compra, na mesma unidade
+      const serie = [];
+      pr.compras.forEach(function (c) {
+        const u = unitPrice(pr, c);
+        if (c.data && u.valor && isFinite(u.valor)) serie.push({ data: c.data, valor: u.valor, loja: c.loja });
+      });
       out.push({
-        id: pr.id, key: pr.key, rawKeys: pr.rawKeys, nomes: pr.nomes, nome: pr.nome, rotulo: a.rotulo, de: a.valor, para: b.valor, pct: pct,
+        id: pr.id, key: pr.key, rawKeys: pr.rawKeys, nomes: pr.nomes, nome: pr.nome, rotulo: a.rotulo, de: a.valor, para: b.valor, pct: pct, serie: serie,
         dataDe: first.data, dataPara: last.data, lojaDe: first.loja, lojaPara: last.loja, categoria: pr.categoria,
         compras: pr.compras.length, suspeito: Math.abs(pct) >= LIMITE_SUSPEITO
       });

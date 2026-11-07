@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.4';
+  const VERSION = '0.5';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {} };
   let S = (function () {
@@ -65,8 +65,18 @@
       .replace(/(CPF[^0-9\n]{0,20})(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/gi, '$1[removido]')
       .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '[CPF removido]');
   }
+  // Os 2 primeiros dígitos da chave de acesso são o código do estado.
+  const UF_COD = { 11: 'RO', 12: 'AC', 13: 'AM', 14: 'RR', 15: 'PA', 16: 'AP', 17: 'TO', 21: 'MA', 22: 'PI', 23: 'CE', 24: 'RN', 25: 'PB', 26: 'PE', 27: 'AL', 28: 'SE', 29: 'BA', 31: 'MG', 32: 'ES', 33: 'RJ', 35: 'SP', 41: 'PR', 42: 'SC', 43: 'RS', 50: 'MS', 51: 'MT', 52: 'GO', 53: 'DF' };
+  const UF_TESTADAS = ['RS'];
+  function ufDaChave(chave) { return UF_COD[String(chave || '').slice(0, 2)] || ''; }
+  function dicaUf(uf) {
+    return uf && UF_TESTADAS.indexOf(uf) < 0
+      ? ' Ainda estamos testando a leitura automática em ' + uf + ': até agora só o RS foi testado. O plano B (colar o texto da nota) funciona em qualquer estado, e o botão "Enviar problema" em Ajustes ajuda a gente a melhorar.'
+      : '';
+  }
   function buildReport(obs, text) {
     return ['Relatório do Caderninho do Mercado', 'Versão: ' + VERSION, 'Data: ' + new Date().toISOString().slice(0, 10),
+      'Estado da nota: ' + (lastRead && lastRead.uf ? lastRead.uf : 'não identificado'),
       'Resultado da leitura: ' + (lastRead && lastRead.summary ? lastRead.summary : 'não informado'),
       'O que deu errado: ' + (obs || 'não informado'), '', '--- texto da nota ---', scrubCpf(text).slice(0, 60000)].join('\n');
   }
@@ -304,14 +314,17 @@
       return;
     }
     say(msg, 'Buscando a nota…');
+    const ufNota = ufDaChave(chave);
+    lastRead = { text: '', summary: 'buscando', uf: ufNota };
     try {
       const px = proxyUrl();
       const res = await fetch(px + (px.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
-      if (!res.ok) return say(msg, 'O site da SEFAZ respondeu com erro ' + res.status + '. Tente o plano B.', true);
+      if (!res.ok) { lastRead.summary = 'erro HTTP ' + res.status; return say(msg, 'O site da SEFAZ respondeu com erro ' + res.status + '. Tente o plano B.' + dicaUf(ufNota), true); }
       const text = await res.text();
       handleText(text, msg, raw);
     } catch (e) {
-      say(msg, 'Não consegui falar com o proxy. Confira o endereço em Ajustes ou use o plano B.', true);
+      lastRead.summary = 'sem resposta do proxy';
+      say(msg, 'Não consegui falar com o proxy. Confira o endereço em Ajustes ou use o plano B.' + dicaUf(ufNota), true);
     }
   }
 
@@ -320,11 +333,13 @@
     if (/captcha|n[ãa]o sou um rob[ôo]/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
       return say(msg, 'O site pediu CAPTCHA. Abra a nota no navegador, resolva, copie o texto e use o plano B.', true);
     }
-    lastRead = { text: plainText(text), summary: 'lendo' };
+    const ufOrigem = ufDaChave(NFParser.extractChave(origem || '') || NFParser.extractChave(text));
+    lastRead = { text: plainText(text), summary: 'lendo', uf: ufOrigem };
     let r;
-    try { r = NFParser.parseAny(text); } catch (e) { lastRead.summary = 'erro: ' + e.message; return say(msg, 'Erro ao ler a nota: ' + e.message, true); }
+    try { r = NFParser.parseAny(text); } catch (e) { lastRead.summary = 'erro: ' + e.message; return say(msg, 'Erro ao ler a nota: ' + e.message + dicaUf(ufOrigem), true); }
+    if (!lastRead.uf && r.uf) lastRead.uf = r.uf;
     lastRead.summary = r.items.length + ' itens, total ' + r.total + (r.uf ? ', ' + r.uf : '') + (r.warnings.length ? ', avisos: ' + r.warnings.join(' | ') : '');
-    if (!r.items.length) return say(msg, 'Não consegui achar itens nessa página. Se o texto da nota estiver na tela, use o plano B e me mande um exemplo para eu ajustar o leitor (sem CPF).', true);
+    if (!r.items.length) return say(msg, 'Não consegui achar itens nessa página. Se o texto da nota estiver na tela, use o plano B e me mande um exemplo para eu ajustar o leitor (sem CPF).' + dicaUf(lastRead.uf), true);
     if (!r.chave) { const k = NFParser.extractChave(origem); if (k) r.chave = k; }
     if (isDup(r)) return say(msg, 'Essa nota já estava salva (' + dataBR(r.date) + ', ' + brl(r.total) + ').', true);
     if (S.auto && autoOk(r)) {
@@ -451,6 +466,43 @@
   }
 
   // ---------- Preços ----------
+  // Gráfico de linha em SVG puro: um ponto por compra, espaçados por ordem (não por dias).
+  function priceChart(serie, rotulo) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const W = 300, H = 132, PL = 8, PR = 8, PT = 24, PB = 22, FOLGA = 16; // FOLGA: espaço para o rótulo abaixo do ponto mais baixo
+    const vals = serie.map(function (s) { return s.valor; });
+    let min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if (max === min) { min -= 1; max += 1; }
+    const x = function (i) { return serie.length === 1 ? W / 2 : PL + i * (W - PL - PR) / (serie.length - 1); };
+    const y = function (v) { return PT + (max - v) * (H - PT - PB - FOLGA) / (max - min); };
+    const el = function (tag, attrs) {
+      const e = document.createElementNS(NS, tag);
+      Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+      return e;
+    };
+    const svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: '100%', role: 'img',
+      'aria-label': 'Preço por ' + rotulo + ' em ' + serie.length + ' compras, de ' + brl(vals[0]) + ' a ' + brl(vals[vals.length - 1]) });
+    svg.append(el('line', { x1: PL, x2: W - PR, y1: H - PB, y2: H - PB, stroke: 'var(--line)', 'stroke-width': 1 }));
+    svg.append(el('polyline', { points: serie.map(function (s, i) { return x(i) + ',' + y(s.valor); }).join(' '),
+      fill: 'none', stroke: 'var(--brand)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+    serie.forEach(function (s, i) {
+      svg.append(el('circle', { cx: x(i), cy: y(s.valor), r: 3.5, fill: 'var(--brand)' }));
+      const dica = el('title'); dica.textContent = dataBR(s.data) + ': ' + brl(s.valor) + (s.loja ? ' · ' + s.loja : ''); svg.lastChild.append(dica);
+    });
+    const txt = function (cx, cy, anchor, s) {
+      const t = el('text', { x: cx, y: cy, 'text-anchor': anchor, 'font-size': 10, fill: 'var(--mute)' });
+      t.textContent = s; return t;
+    };
+    const ult = serie.length - 1;
+    // rótulo no lado livre: se o vizinho está acima, a linha sobe, então o rótulo vai abaixo do ponto
+    const dy = function (i, viz) { return y(vals[i]) + (viz > vals[i] ? 13 : -7); };
+    svg.append(txt(x(0), ult > 0 ? dy(0, vals[1]) : y(vals[0]) - 7, serie.length === 1 ? 'middle' : 'start', brl(vals[0])));
+    if (ult > 0) svg.append(txt(x(ult), dy(ult, vals[ult - 1]), 'end', brl(vals[ult])));
+    svg.append(txt(PL, H - 6, 'start', dataBR(serie[0].data).slice(0, 5)));
+    if (ult > 0) svg.append(txt(W - PR, H - 6, 'end', dataBR(serie[ult].data).slice(0, 5)));
+    return svg;
+  }
+
   function viewPrices() {
     const ch = Core.priceChanges(S.purchases);
     const card = h('div', { class: 'card' }, h('h2', { text: 'O que mudou de preço' }),
@@ -473,6 +525,9 @@
           h('div', { class: 'mute', text: brl(c.de) + ' → ' + brl(c.para) + ' por ' + c.rotulo }),
           c.suspeito ? h('div', { class: 'warn', style: 'margin:6px 0;padding:6px 10px;font-size:13px', text: 'Variação grande: pode ser promoção. Não entra na sua inflação.' }) : null,
           c.nomes.length > 1 ? h('div', { class: 'mute', text: 'Junta: ' + c.nomes.slice(0, 3).join(' · ') }) : null,
+          c.serie && c.serie.length >= 2 ? h('details', { class: 'hist' }, h('summary', { text: 'Ver histórico (' + c.serie.length + ' compras)' }),
+            priceChart(c.serie, c.rotulo),
+            h('div', { class: 'mute', text: 'Cada ponto é uma compra, por ' + c.rotulo + '. Passe o dedo no ponto para ver a data e a loja.' })) : null,
           acoes),
         h('div', { class: 'v ' + (c.pct > 0 ? 'up' : 'down'), text: pct(c.pct) })));
     });
