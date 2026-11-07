@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.8';
+  const VERSION = '0.9';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -280,7 +280,7 @@
       card2.append(h('div', { class: 'big', text: '—' }), h('div', { class: 'mute', text: 'Precisa de pelo menos 3 produtos comprados em datas diferentes (' + inf.produtos + ' até agora).' }));
     } else {
       card2.append(h('div', { class: 'big ' + (inf.pct > 0 ? 'up' : 'down'), text: pct(inf.pct) }),
-        h('div', { class: 'mute', text: 'Média ponderada pelo gasto, em ' + inf.produtos + ' produtos que você repetiu. Compare com o IPCA de alimentos do IBGE.' + (inf.excluidos ? ' Deixei de fora ' + inf.excluidos + (inf.excluidos === 1 ? ' produto' : ' produtos') + ' com variação acima de 40% (pode ser promoção).' : '') }));
+        h('div', { class: 'mute', text: 'Média ponderada pelo gasto, em ' + inf.produtos + ' produtos que você repetiu, nos últimos 12 meses de notas (até a mais recente). Compare com o IPCA de alimentos do IBGE.' + (inf.excluidos ? ' Deixei de fora ' + inf.excluidos + (inf.excluidos === 1 ? ' produto' : ' produtos') + ' com variação acima de 40% (pode ser promoção).' : '') }));
     }
     view.append(card2);
 
@@ -291,7 +291,7 @@
       card3.append(h('div', { text: 'Nenhuma categoria marcada ainda. Marque em Ajustes.' }));
     } else {
       card3.append(h('div', { class: 'big', text: brl(cp.totalPeriodo) }),
-        h('div', { class: 'mute', text: 'nas notas guardadas (' + cp.categorias.map(function (c) { return c.nome; }).join(', ') + ')' }));
+        h('div', { class: 'mute', text: 'nos últimos 12 meses de notas (' + cp.categorias.map(function (c) { return c.nome; }).join(', ') + ')' }));
       const sel = h('select', { 'aria-label': 'Quanto cortar' });
       [10, 20, 30, 50].forEach(function (v) { sel.append(h('option', { value: v, selected: v === S.corte }, 'Cortar ' + v + '%')); });
       sel.addEventListener('change', function () { S.corte = +sel.value; save(); render(); });
@@ -492,6 +492,7 @@
   let openBuy = null;
   // ---------- Lista de compras ----------
   let comprasModo = 'notas'; // 'notas' | 'lista'
+  let comprasLimite = 20;    // quantas notas a aba Notas desenha; "Ver mais" aumenta
   function viewList() {
     const L = Core.shoppingList(S.purchases, new Date(), S.listaFora);
     const nFora = Object.keys(S.listaFora).length;
@@ -563,23 +564,36 @@
     const byItem = {};
     Core.buildProducts(S.purchases).forEach(function (pr) { pr.compras.forEach(function (c) { byItem[c.nota + '|' + c.nome] = pr; }); });
     view.append(h('div', { class: 'mute', text: 'Abaixo de cada item está a categoria dele. Toque nela para corrigir: o app lembra nas próximas notas.' }));
-    S.purchases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).forEach(function (p) {
+    // Com muitas notas, desenhar tudo de uma vez deixa a tela lenta: mostra as mais recentes (todas continuam
+    // guardadas e entram nos cálculos) e monta os itens de cada nota só quando ela é aberta.
+    const ordenadas = S.purchases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    ordenadas.slice(0, comprasLimite).forEach(function (p) {
       const d = h('details', { class: 'card', open: p.id === openBuy },
         h('summary', null, h('span', null, dataBR(p.date) + ' · ' + storeLabel(p.store) + ' · ' + brl(p.total))));
-      d.addEventListener('toggle', function () { if (d.open) openBuy = p.id; else if (openBuy === p.id) openBuy = null; });
-      p.items.forEach(function (it) {
-        const pr = byItem[p.id + '|' + it.nome];
-        const cat = pr ? (S.overrides[pr.key] || pr.categoria) : 'outros';
-        const sel = h('select', { 'aria-label': 'Categoria de ' + it.nome, style: 'width:auto;max-width:100%;padding:4px 8px;font-size:13px;margin-top:4px' });
-        Core.CATEGORIES.forEach(function (c) { sel.append(h('option', { value: c.id, selected: c.id === cat }, c.nome)); });
-        sel.addEventListener('change', function () { if (pr) { S.overrides[pr.key] = sel.value; save(); } render(); });
-        d.append(h('div', { class: 'row' }, h('div', { class: 'n' }, it.nome, h('div', null, sel)), h('div', { class: 'v', text: brl(it.vlTotal) })));
-      });
-      d.append(h('div', { style: 'margin-top:10px' }, h('button', { class: 'danger', text: 'Apagar esta nota', onclick: function () {
-        if (confirm('Apagar esta nota?')) { S.purchases = S.purchases.filter(function (x) { return x.id !== p.id; }); save(); render(); }
-      } })));
+      let montada = false;
+      const montar = function () {
+        if (montada) return; montada = true;
+        const corpo = [];
+        p.items.forEach(function (it) {
+          const pr = byItem[p.id + '|' + it.nome];
+          const cat = pr ? (S.overrides[pr.key] || pr.categoria) : 'outros';
+          const sel = h('select', { 'aria-label': 'Categoria de ' + it.nome, style: 'width:auto;max-width:100%;padding:4px 8px;font-size:13px;margin-top:4px' });
+          Core.CATEGORIES.forEach(function (c) { sel.append(h('option', { value: c.id, selected: c.id === cat }, c.nome)); });
+          sel.addEventListener('change', function () { if (pr) { S.overrides[pr.key] = sel.value; save(); } render(); });
+          corpo.push(h('div', { class: 'row' }, h('div', { class: 'n' }, it.nome, h('div', null, sel)), h('div', { class: 'v', text: brl(it.vlTotal) })));
+        });
+        corpo.push(h('div', { style: 'margin-top:10px' }, h('button', { class: 'danger', text: 'Apagar esta nota', onclick: function () {
+          if (confirm('Apagar esta nota?')) { S.purchases = S.purchases.filter(function (x) { return x.id !== p.id; }); save(); render(); }
+        } })));
+        corpo.forEach(function (el) { d.append(el); });
+      };
+      d.addEventListener('toggle', function () { if (d.open) { openBuy = p.id; montar(); } else if (openBuy === p.id) openBuy = null; });
+      if (d.open) montar();
       view.append(d);
     });
+    if (ordenadas.length > comprasLimite) {
+      view.append(h('button', { text: 'Ver mais notas (' + (ordenadas.length - comprasLimite) + ' restantes)', onclick: function () { comprasLimite += 20; render(); } }));
+    }
   }
 
   // ---------- Preços ----------
@@ -721,7 +735,7 @@
     if (enc) view.append(enc);
     const ch = Core.priceChanges(S.purchases);
     const card = h('div', { class: 'card' }, h('h2', { text: 'O que mudou de preço' }),
-      h('div', { class: 'mute', text: 'Primeiro preço comparado ao último, por kg, litro ou unidade. Produtos parecidos são agrupados pelo nome; confira se faz sentido.' }));
+      h('div', { class: 'mute', text: 'Primeiro preço comparado ao último nos últimos 12 meses de notas, por kg, litro ou unidade. Produtos parecidos são agrupados pelo nome; confira se faz sentido.' }));
     if (!ch.length) card.append(h('p', { text: 'Ainda não há produtos comprados em duas datas diferentes.' }));
     ch.slice(0, 15).forEach(function (c) {
       const acoes = h('div', { class: 'flex', style: 'margin-top:6px;gap:6px' },

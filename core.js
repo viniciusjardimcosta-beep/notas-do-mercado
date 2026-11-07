@@ -117,7 +117,34 @@
   function resolveKey(k) { let n = 0; while (USER.merges[k] && n++ < 5) k = USER.merges[k]; return k; }
   function pairKey(a, b) { return [a, b].sort().join('|'); }
 
+  // Cache do agrupamento de produtos (é a parte mais cara). A chave é uma assinatura do CONTEÚDO das notas
+  // e dos ajustes do usuário, não um aviso manual de "mudou": se qualquer nota, item ou ajuste for diferente,
+  // a assinatura muda e o cálculo é refeito. Devolve uma cópia do array para quem ordenar não bagunçar o cache.
+  const CACHE_MAX = 4;
+  let CACHE_KEYS = [], CACHE_VALS = {};
+  function assinatura(purchases) {
+    let h1 = 5381, h2 = 52711;
+    const add = function (s) {
+      for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = (Math.imul(h1, 33) ^ c) | 0; h2 = (Math.imul(h2, 31) + c) | 0; }
+    };
+    add(JSON.stringify(USER));
+    purchases.forEach(function (p) {
+      add('#' + p.id + '|' + p.date + '|' + p.total + '|' + (p.store ? p.store.cnpj + '|' + p.store.name : ''));
+      (p.items || []).forEach(function (it) { add('~' + it.nome + '|' + it.codigo + '|' + it.vlUnit + '|' + it.vlTotal + '|' + it.qtd + '|' + it.un); });
+    });
+    return h1 + ':' + h2 + ':' + purchases.length;
+  }
   function buildProducts(purchases) {
+    const k = assinatura(purchases);
+    if (!CACHE_VALS[k]) {
+      CACHE_VALS[k] = buildProductsRaw(purchases);
+      CACHE_KEYS.push(k);
+      while (CACHE_KEYS.length > CACHE_MAX) delete CACHE_VALS[CACHE_KEYS.shift()];
+    }
+    return CACHE_VALS[k].slice();
+  }
+
+  function buildProductsRaw(purchases) {
     const products = [];
     const byGtin = {}, byKey = {};
     purchases.forEach(function (p) {
@@ -255,8 +282,23 @@
   // Variações acima disso provavelmente são promoção (ou produto diferente) e não entram na inflação pessoal.
   const LIMITE_SUSPEITO = 40;
 
+  // Janela de análise: só as notas dos últimos 12 meses, contados a partir da nota mais recente (não da data de
+  // hoje, para não depender do relógio nem esvaziar a tela de quem ficou um tempo sem lançar). Sem isso, anos de
+  // histórico viram uma "inflação" acumulada que não dá para comparar com o IPCA de 12 meses.
+  const JANELA_MESES = 12;
+  function windowPurchases(purchases, meses) {
+    const datas = purchases.map(function (p) { return p.date; }).filter(Boolean).sort();
+    if (!datas.length) return purchases;
+    const fim = datas[datas.length - 1];
+    const corte = (+fim.slice(0, 4) - Math.floor((meses || JANELA_MESES) / 12)) + fim.slice(4, 10);
+    const dentro = purchases.filter(function (p) { return p.date && p.date > corte; });
+    return dentro.length === purchases.length ? purchases : dentro;
+  }
+
   // Variação de preço por produto: primeiro vs último preço comparável, com pelo menos 2 compras em datas diferentes.
-  function priceChanges(purchases) {
+  // Considera só os últimos 12 meses de notas (veja windowPurchases).
+  function priceChanges(purchases, opts) {
+    purchases = (opts && opts.tudo) ? purchases : windowPurchases(purchases);
     const out = [];
     buildProducts(purchases).forEach(function (pr) {
       if (pr.compras.length < 2) return;
@@ -303,12 +345,13 @@
 
   // Inflação pessoal: média ponderada pelo gasto (primeira compra) dos produtos que você comprou 2+ vezes.
   function personalInflation(purchases) {
-    const todas = priceChanges(purchases);
+    const W = windowPurchases(purchases);
+    const todas = priceChanges(W, { tudo: true });
     const ch = todas.filter(function (c) { return !c.suspeito; });
     const excluidos = todas.length - ch.length;
     let wsum = 0, acc = 0, n = 0;
     const products = {};
-    buildProducts(purchases).forEach(function (p) { products[p.id] = p; });
+    buildProducts(W).forEach(function (p) { products[p.id] = p; });
     ch.forEach(function (c) {
       const pr = products[c.id];
       const w = pr.compras[0].vlTotal;
@@ -321,7 +364,7 @@
   // Onde está mais barato: último preço por loja de cada produto comprado em 2+ lojas.
   function storeCompare(purchases) {
     const out = [];
-    buildProducts(purchases).forEach(function (pr) {
+    buildProducts(windowPurchases(purchases)).forEach(function (pr) {
       const byStore = {};
       pr.compras.forEach(function (c) {
         const k = c.cnpj || c.loja;
@@ -340,7 +383,8 @@
 
   // Quanto o usuário gasta nas categorias que marcou como "cortáveis" e o que isso daria em um ano.
   function cutPotential(purchases, overrides, cutMap, corte) {
-    const cats = categoryTotals(purchases, overrides, cutMap).filter(function (c) { return c.cortavel; });
+    purchases = windowPurchases(purchases);
+    const cats =categoryTotals(purchases, overrides, cutMap).filter(function (c) { return c.cortavel; });
     const dates = purchases.map(function (p) { return p.date; }).filter(Boolean).sort();
     let dias = 1;
     if (dates.length >= 2) {
@@ -414,9 +458,13 @@
       const datas = Object.keys(porData).sort();
       if (datas.length < 2) return;
       const ult = porData[datas[datas.length - 1]];
-      const media = (dayNum(datas[datas.length - 1]) - dayNum(datas[0])) / (datas.length - 1);
+      // o ritmo vem só das últimas 6 compras, para um hábito antigo não distorcer o de agora
+      const rec = datas.slice(-6);
+      const media = (dayNum(rec[rec.length - 1]) - dayNum(rec[0])) / (rec.length - 1);
       if (!(media >= 1)) return;
       const diasDesde = Math.max(0, Math.round(hoje - dayNum(ult.data)));
+      // quem não compra mais (passou de 3 intervalos e de 90 dias) sai da lista em vez de ficar "acabando" para sempre
+      if (diasDesde > 90 && diasDesde > 3 * media) return;
       const ratio = diasDesde / media;
       out.push({
         key: pr.key, nome: pr.nome, categoria: pr.categoria, nCompras: datas.length, ultimaData: ult.data, ultimoPreco: ult.vlUnit, ultimoTotal: ult.vlTotal,
@@ -492,7 +540,7 @@
   }
 
   return {
-    parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
+    windowPurchases: windowPurchases, JANELA_MESES: JANELA_MESES, parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,

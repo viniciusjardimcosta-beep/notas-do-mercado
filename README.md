@@ -121,3 +121,11 @@ tests/     unit.test.js (sem navegador) e browser.test.js (precisa de playwright
 2. Envio da nota por WhatsApp ou e-mail para reduzir o esforço de escanear.
 3. Leitura da foto da nota (plano B) com modelo de visão, mostrando a imagem ao lado dos dados lidos.
 4. Gráfico de preço por produto ao longo do tempo.
+
+## Desempenho e janela de análise (v0.9)
+
+- **Janela de 12 meses:** variação de preço, inflação pessoal, comparação entre lojas e potencial de corte usam só as notas dos últimos 12 meses, contados a partir da nota mais recente (`Core.windowPurchases`). Sem isso, anos de histórico viram uma inflação acumulada que não se compara com o IPCA de 12 meses. A busca "Quanto paguei?", o gráfico de histórico (dentro da janela), a meta e as listas por mês continuam vendo o que cada uma precisa.
+- **Lista de compras:** o ritmo de cada produto vem das últimas 6 compras, e quem não é comprado há mais de 90 dias e mais de 3 intervalos sai da lista.
+- **Cache do agrupamento de produtos:** a chave é uma assinatura do conteúdo das notas e dos ajustes (`assinatura` em `core.js`), então não depende de avisar "mudou". Há testes que comparam o resultado com um módulo sem cache depois de cada tipo de alteração.
+- **Aba Compras:** mostra as 20 notas mais recentes ("Ver mais notas") e monta os itens de cada nota só ao abrir.
+- Medido no Chromium com CPU 4x mais lenta, 1 nota a cada 3,5 dias: com 150 notas, Compras 2,7 s → 0,05 s e Resumo 0,8 s → 0,2 s.
