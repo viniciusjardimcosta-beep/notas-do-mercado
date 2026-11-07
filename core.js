@@ -354,6 +354,36 @@
     };
   }
 
+  function foldText(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+  // Busca por produto ("Quanto paguei?"): todas as palavras digitadas precisam aparecer no nome
+  // (sem acento, sem maiúsculas). Devolve a última compra e a de menor preço (por kg/litro quando
+  // o tamanho é conhecido, senão por unidade). Em empate de preço, vale a mais recente.
+  function lookupProducts(purchases, query, limit) {
+    const toks = foldText(query).split(/[^a-z0-9]+/).filter(Boolean);
+    if (!toks.length) return [];
+    const out = [];
+    buildProducts(purchases).forEach(function (pr) {
+      const hay = foldText([pr.nome].concat(pr.nomes).join(' '));
+      if (!toks.every(function (t) { return hay.indexOf(t) >= 0; })) return;
+      const lista = pr.compras.filter(function (c) { return c.vlUnit > 0 && isFinite(c.vlUnit); }).map(function (c) {
+        return { data: c.data, loja: c.loja, vlUnit: c.vlUnit, un: c.un, up: unitPrice(pr, c) };
+      });
+      if (!lista.length) return;
+      const ultima = lista[lista.length - 1];
+      let menor = lista[0];
+      lista.forEach(function (l) { if (l.up.valor <= menor.up.valor) menor = l; });
+      out.push({ key: pr.key, nome: pr.nome, categoria: pr.categoria, nCompras: lista.length, ultima: ultima, menor: menor,
+        menorEhUltima: menor === ultima, rotulo: ultima.up.rotulo, promoNaUltima: !(menor === ultima) && (ultima.up.valor - menor.up.valor) / menor.up.valor * 100 >= LIMITE_SUSPEITO });
+    });
+    out.sort(function (a, b) {
+      if (a.nCompras !== b.nCompras) return b.nCompras - a.nCompras;
+      const da = String(a.ultima.data || ''), db = String(b.ultima.data || '');
+      return da === db ? a.nome.localeCompare(b.nome) : (da < db ? 1 : -1);
+    });
+    return out.slice(0, limit || 8);
+  }
+
   // Valor digitado pela pessoa: aceita "900", "900,50", "1.200,00", "R$ 1200".
   function parseMoney(s) {
     let t = String(s == null ? '' : s).replace(/R\$|\s/gi, '');
@@ -386,7 +416,7 @@
   }
 
   return {
-    parseMoney: parseMoney, goalStatus: goalStatus,
+    parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,

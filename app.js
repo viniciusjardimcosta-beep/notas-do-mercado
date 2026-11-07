@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.6';
+  const VERSION = '0.7';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0 };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -567,7 +567,64 @@
     return h('div', null, svg, info);
   }
 
+  // "Quanto paguei?": busca um produto nas notas e, se a pessoa digitar o preço da prateleira,
+  // compara com a última compra e com o menor preço já pago. Atualiza só os resultados (sem render()),
+  // para o teclado do celular não fechar a cada letra.
+  let buscaQ = '';
+  function buscaCard() {
+    const card = h('div', { class: 'card' }, h('h2', { text: 'Quanto paguei?' }));
+    const inp = h('input', { type: 'search', placeholder: 'Buscar produto (ex.: leite, arroz)', 'aria-label': 'Buscar produto nas suas notas', value: buscaQ, autocomplete: 'off', enterkeyhint: 'search' });
+    const res = h('div', { 'aria-live': 'polite' });
+    const cmpTexto = function (agora, r) {
+      const frag = [];
+      const p1 = (agora - r.ultima.vlUnit) / r.ultima.vlUnit * 100;
+      if (Math.abs(p1) < 1) frag.push(h('div', { text: 'Igual ao da última vez.' }));
+      else frag.push(h('div', null, h('span', { class: p1 > 0 ? 'up' : 'down', text: pct(p1) }), p1 > 0 ? ' mais caro que da última vez.' : ' mais barato que da última vez.'));
+      if (!r.menorEhUltima) {
+        const p2 = (agora - r.menor.vlUnit) / r.menor.vlUnit * 100;
+        if (Math.abs(p2) < 1) frag.push(h('div', { text: 'Igual ao menor preço que você já pagou.' }));
+        else frag.push(h('div', null, h('span', { class: p2 > 0 ? 'up' : 'down', text: pct(p2) }), p2 > 0 ? ' em relação ao menor preço que você já pagou.' : ' abaixo do menor preço que você já pagou.'));
+      } else if (agora < r.ultima.vlUnit * 0.99) {
+        frag.push(h('div', { class: 'down', text: 'Seria o menor preço que você já pagou.' }));
+      }
+      return frag;
+    };
+    const itemCard = function (r) {
+      const loja = function (c) { return c.loja ? ' · ' + c.loja : ''; };
+      const porKg = r.rotulo !== 'un' && Math.abs(r.ultima.up.valor - r.ultima.vlUnit) > 0.005 ? h('div', { class: 'mute', text: 'Equivale a ' + brl(r.ultima.up.valor) + ' por ' + r.rotulo + '.' }) : null;
+      const cmp = h('div', { class: 'cmp', style: 'margin-top:6px', 'aria-live': 'polite' });
+      const agoraInp = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Ex.: 5,99', 'aria-label': 'Preço na prateleira agora, em reais, de ' + r.nome });
+      agoraInp.addEventListener('input', function () {
+        const v = Core.parseMoney(agoraInp.value);
+        cmp.replaceChildren.apply(cmp, v == null ? [] : cmpTexto(v, r));
+      });
+      return h('div', { class: 'row', style: 'display:block' },
+        h('div', null, h('strong', { text: r.nome })),
+        h('div', { class: 'mute', text: r.nCompras + (r.nCompras === 1 ? ' compra' : ' compras') + ' nas suas notas' }),
+        h('div', { style: 'margin-top:6px', text: 'Última vez: ' + brl(r.ultima.vlUnit) + ' · ' + dataBR(r.ultima.data) + loja(r.ultima) }),
+        porKg,
+        r.nCompras < 2 ? h('div', { class: 'mute', text: 'Só comprou uma vez, ainda não dá para comparar.' })
+          : r.menorEhUltima ? h('div', { class: 'down', text: 'Foi o menor preço que você já pagou.' })
+            : h('div', null, 'Menor preço: ' + brl(r.menor.vlUnit) + ' · ' + dataBR(r.menor.data) + loja(r.menor)),
+        r.promoNaUltima ? h('div', { class: 'mute', text: 'O menor preço pode ter sido promoção.' }) : null,
+        h('label', { text: 'Preço na prateleira agora (R$)', style: 'margin-top:10px' }), agoraInp, cmp);
+    };
+    const atualizar = function () {
+      buscaQ = inp.value;
+      const q = buscaQ.trim();
+      if (!q) return res.replaceChildren(h('div', { class: 'mute', text: 'Digite o nome de um produto que você já comprou. Mostro o último preço, o menor que você já pagou e comparo com o preço da prateleira.' }));
+      const lista = Core.lookupProducts(S.purchases, q, 8);
+      if (!lista.length) return res.replaceChildren(h('div', { class: 'mute', text: 'Não achei esse produto nas suas notas. Tente uma palavra só, como "leite".' }));
+      res.replaceChildren.apply(res, lista.map(itemCard));
+    };
+    inp.addEventListener('input', atualizar);
+    card.append(inp, res);
+    atualizar();
+    return card;
+  }
+
   function viewPrices() {
+    view.append(buscaCard());
     const ch = Core.priceChanges(S.purchases);
     const card = h('div', { class: 'card' }, h('h2', { text: 'O que mudou de preço' }),
       h('div', { class: 'mute', text: 'Primeiro preço comparado ao último, por kg, litro ou unidade. Produtos parecidos são agrupados pelo nome; confira se faz sentido.' }));
