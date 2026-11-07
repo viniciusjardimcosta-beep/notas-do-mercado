@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.5';
+  const VERSION = '0.5.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {} };
   let S = (function () {
@@ -485,9 +485,24 @@
     svg.append(el('line', { x1: PL, x2: W - PR, y1: H - PB, y2: H - PB, stroke: 'var(--line)', 'stroke-width': 1 }));
     svg.append(el('polyline', { points: serie.map(function (s, i) { return x(i) + ',' + y(s.valor); }).join(' '),
       fill: 'none', stroke: 'var(--brand)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+    // Toque (ou clique) em um ponto mostra data, preço e loja numa linha abaixo do gráfico.
+    // Tooltip de <title> não aparece no celular, por isso a linha de texto.
+    const info = h('div', { class: 'hist-info', 'aria-live': 'polite' });
+    const pontos = [];
+    const mostrar = function (i) {
+      const s = serie[i];
+      info.textContent = dataBR(s.data) + ' · ' + brl(s.valor) + ' por ' + rotulo + (s.loja ? ' · ' + s.loja : '');
+      pontos.forEach(function (c, j) { c.setAttribute('r', j === i ? 5.5 : 3.5); });
+    };
     serie.forEach(function (s, i) {
-      svg.append(el('circle', { cx: x(i), cy: y(s.valor), r: 3.5, fill: 'var(--brand)' }));
-      const dica = el('title'); dica.textContent = dataBR(s.data) + ': ' + brl(s.valor) + (s.loja ? ' · ' + s.loja : ''); svg.lastChild.append(dica);
+      const c = el('circle', { class: 'pt', cx: x(i), cy: y(s.valor), r: 3.5, fill: 'var(--brand)' });
+      pontos.push(c); svg.append(c);
+    });
+    serie.forEach(function (s, i) {
+      // área de toque maior e invisível, para dedo no celular
+      const alvo = el('circle', { class: 'hit', cx: x(i), cy: y(s.valor), r: 16, fill: 'transparent', style: 'cursor:pointer' });
+      alvo.addEventListener('click', function () { mostrar(i); });
+      svg.append(alvo);
     });
     const txt = function (cx, cy, anchor, s) {
       const t = el('text', { x: cx, y: cy, 'text-anchor': anchor, 'font-size': 10, fill: 'var(--mute)' });
@@ -500,7 +515,8 @@
     if (ult > 0) svg.append(txt(x(ult), dy(ult, vals[ult - 1]), 'end', brl(vals[ult])));
     svg.append(txt(PL, H - 6, 'start', dataBR(serie[0].data).slice(0, 5)));
     if (ult > 0) svg.append(txt(W - PR, H - 6, 'end', dataBR(serie[ult].data).slice(0, 5)));
-    return svg;
+    mostrar(ult);
+    return h('div', null, svg, info);
   }
 
   function viewPrices() {
@@ -527,7 +543,7 @@
           c.nomes.length > 1 ? h('div', { class: 'mute', text: 'Junta: ' + c.nomes.slice(0, 3).join(' · ') }) : null,
           c.serie && c.serie.length >= 2 ? h('details', { class: 'hist' }, h('summary', { text: 'Ver histórico (' + c.serie.length + ' compras)' }),
             priceChart(c.serie, c.rotulo),
-            h('div', { class: 'mute', text: 'Cada ponto é uma compra, por ' + c.rotulo + '. Passe o dedo no ponto para ver a data e a loja.' })) : null,
+            h('div', { class: 'mute', text: 'Cada ponto é uma compra, por ' + c.rotulo + '. Toque em um ponto para ver a data, o preço e a loja.' })) : null,
           acoes),
         h('div', { class: 'v ' + (c.pct > 0 ? 'up' : 'down'), text: pct(c.pct) })));
     });
