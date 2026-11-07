@@ -69,7 +69,14 @@ A câmera só funciona em `https` ou `localhost`.
 - **Boas-vindas:** tela curta na primeira abertura, com aviso de que o app está em teste e link da política de privacidade.
 - **Enviar problema (Ajustes):** gera um relatório com o texto da última nota lida, sem CPF, e abre o menu Compartilhar do celular. Não há servidor de feedback: a pessoa manda para quem coordena o teste.
 - **Refazer categorias:** apaga as correções manuais e reaplica a lista de palavras atual.
-- **`app/privacidade.html`:** rascunho da política. **Preencha o responsável e o contato** (campo entre colchetes) e peça revisão jurídica antes de abrir ao público.
+- **`app/privacidade.html`:** rascunho da política, com o contato do projeto (caderninhodomercado@gmail.com) já preenchido. Peça revisão jurídica antes de abrir ao público.
+
+## Pendências de marca (checar antes de divulgar ou registrar)
+
+- Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.
+- **Acompanhar:** processo **943832039**, marca "Caderninho" (Diogo Martins Barros), **classe 42** (software), depositado em 21/05/2026, "aguardando exame de mérito". Se for registrado, pode colidir com o nosso nome. Conferir o andamento no INPI de tempos em tempos.
+- Em vigor em outros ramos (risco baixo): "Caderninho de Cultura" (classes 25, 28, 35, 41) e "Caderninho Amarelo" (classes 35, 41).
+- Antes de registrar a marca ou gastar com divulgação: consulta a um agente de propriedade industrial.
 
 ## Limitações conhecidas
 
