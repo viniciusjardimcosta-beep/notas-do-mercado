@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.10.1';
+  const VERSION = '0.10.2';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -552,11 +552,13 @@
     document.querySelectorAll('video').forEach(function (v) { try { v.srcObject = null; } catch (e) { /* ok */ } });
   }
   function loadJsQR() {
+    // O leitor (jsQR, licença Apache-2.0) vem junto com o app: não depende de servidor externo.
     return new Promise(function (ok, fail) {
       if (window.jsQR) return ok();
       const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
-      s.onload = ok; s.onerror = fail; document.head.append(s);
+      s.src = 'jsQR.js';
+      s.onload = function () { window.jsQR ? ok() : fail(new Error('jsQR ausente')); };
+      s.onerror = fail; document.head.append(s);
     });
   }
 

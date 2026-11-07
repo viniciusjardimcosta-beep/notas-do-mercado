@@ -85,6 +85,12 @@ A câmera só funciona em `https` ou `localhost`.
 - **Compartilhar imagem** (Resumo, abaixo da inflação): gera um cartão PNG de 1080x1350 com a inflação dos últimos 12 meses, o número de notas lidas e quantos produtos encolheram, mais o endereço do app. Não inclui valores gastos, produtos, lojas nem datas. Só aparece quando há inflação calculada ou embalagem menor. Sem suporte a compartilhar arquivo, baixa a imagem.
 - **Indicar para um amigo** (Ajustes): abre o menu Compartilhar com uma mensagem pronta e o endereço.
 
+## Câmera no iPhone (v0.10.1 e v0.10.2)
+
+- O Safari do iPhone mostrava a câmera ligada com imagem preta porque `muted` e `playsinline` estavam só como atributo. Agora são definidos como propriedade; se o início automático for recusado, um toque na imagem liga; se nenhuma imagem aparecer em 6 s, o app explica o que fazer.
+- O leitor de QR (jsQR 1.4.0, Apache-2.0, `app/jsQR.js`) agora vem junto com o app, em vez de ser baixado do cdnjs. O iPhone não tem `BarcodeDetector`, então depende dele para escanear. Teste de decodificação em `tests/browser.test.js` com imagem em `tests/fixtures/qr.png`.
+- **Não testado:** câmera real em iPhone. Os testes usam a câmera simulada do Chromium.
+
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
 - Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.
