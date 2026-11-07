@@ -354,7 +354,39 @@
     };
   }
 
+  // Valor digitado pela pessoa: aceita "900", "900,50", "1.200,00", "R$ 1200".
+  function parseMoney(s) {
+    let t = String(s == null ? '' : s).replace(/R\$|\s/gi, '');
+    if (!t) return null;
+    if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ''); // "1.200" é mil e duzentos
+    if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+    const v = parseFloat(t);
+    return v > 0 && v < 1e7 ? v : null;
+  }
+
+  // Meta de gasto do mês corrente (mês do calendário, não o da última nota).
+  // 'perto' a partir de 80%; 'passou' acima de 100%. A projeção só aparece depois do dia 10, porque
+  // antes disso uma compra grande distorce tudo.
+  function goalStatus(purchases, meta, now) {
+    if (!(meta > 0)) return null;
+    now = now || new Date();
+    const mes = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const dia = now.getDate(), diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    let gasto = 0, notas = 0;
+    purchases.forEach(function (p) { if (monthKey(p.date) === mes) { gasto += p.total; notas++; } });
+    gasto = Math.round(gasto * 100) / 100;
+    const pct = gasto / meta * 100;
+    const situacao = gasto > meta ? 'passou' : (pct >= 80 ? 'perto' : 'ok');
+    const projecao = (notas > 0 && dia >= 10 && dia < diasMes) ? Math.round(gasto / dia * diasMes * 100) / 100 : null;
+    return {
+      mes: mes, meta: meta, gasto: gasto, notas: notas, pct: pct, situacao: situacao,
+      restante: Math.round((meta - gasto) * 100) / 100, diasRestantes: diasMes - dia, projecao: projecao
+    };
+  }
+
   return {
+    parseMoney: parseMoney, goalStatus: goalStatus,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,

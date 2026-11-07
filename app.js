@@ -9,9 +9,10 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.5.1';
+  const VERSION = '0.6';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {} };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0 };
+  let editMeta = false; // formulário da meta mensal aberto na tela inicial
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
@@ -169,6 +170,52 @@
   });
 
   // ---------- Resumo ----------
+  // Meta mensal: barra de progresso do mês atual. O estado vai em texto, não só em cor.
+  function goalCard() {
+    const g = Core.goalStatus(S.purchases, S.meta);
+    const card = h('div', { class: 'card' });
+    const form = function () {
+      const inp = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Ex.: 900', 'aria-label': 'Meta de gasto do mês em reais', value: S.meta ? String(S.meta).replace('.', ',') : '' });
+      const erro = h('div', { class: 'warn', hidden: true, text: 'Digite um valor em reais, como 900 ou 1.200,50.' });
+      const salvar = function () {
+        const v = Core.parseMoney(inp.value);
+        if (v == null) { erro.hidden = false; return; }
+        S.meta = v; editMeta = false; save(); render();
+      };
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') salvar(); });
+      return h('div', { style: 'margin-top:8px' }, h('label', { text: 'Quanto você quer gastar por mês no mercado? (R$)' }), inp, erro,
+        h('div', { class: 'flex', style: 'margin-top:8px' },
+          h('button', { class: 'primary', text: 'Salvar meta', onclick: salvar }),
+          h('button', { text: 'Cancelar', onclick: function () { editMeta = false; render(); } }),
+          S.meta ? h('button', { text: 'Remover', onclick: function () { S.meta = 0; editMeta = false; save(); render(); } }) : null));
+    };
+    if (!g) {
+      card.append(h('strong', { text: 'Meta do mês' }),
+        h('div', { class: 'mute', text: 'Defina quanto quer gastar por mês no mercado e acompanhe aqui, nota a nota.' }));
+      if (editMeta) card.append(form());
+      else card.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Definir meta', onclick: function () { editMeta = true; render(); } })));
+      return card;
+    }
+    card.append(h('div', { class: 'mute', text: 'Meta do mês · ' + mesBR(g.mes) }),
+      h('div', { class: 'big', text: brl(g.gasto) + ' de ' + brl(g.meta) }));
+    const bar = h('div', { class: 'meta-bar ' + g.situacao, role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': g.meta, 'aria-valuenow': Math.min(g.gasto, g.meta), 'aria-label': 'Gasto do mês em relação à meta' },
+      h('i', { style: 'width:' + Math.min(100, Math.max(g.gasto > 0 ? 2 : 0, g.pct)).toFixed(1) + '%' }));
+    card.append(bar);
+    const dias = g.diasRestantes === 0 ? 'hoje é o último dia do mês' : (g.diasRestantes === 1 ? 'falta 1 dia para acabar o mês' : 'faltam ' + g.diasRestantes + ' dias para acabar o mês');
+    let txt;
+    if (!g.notas) txt = 'Ainda sem notas neste mês · ' + dias + '.';
+    else if (g.situacao === 'passou') txt = 'Passou ' + brl(-g.restante) + ' da meta (' + g.pct.toFixed(0) + '%) · ' + dias + '.';
+    else if (g.situacao === 'perto') txt = 'Atenção: já usou ' + g.pct.toFixed(0) + '% da meta. Restam ' + brl(g.restante) + ' · ' + dias + '.';
+    else txt = 'Usou ' + g.pct.toFixed(0) + '% da meta. Restam ' + brl(g.restante) + ' · ' + dias + '.';
+    card.append(h('div', { text: txt }));
+    if (g.projecao != null) {
+      card.append(h('div', { class: 'mute', style: 'margin-top:6px', text: 'No ritmo de agora, o mês fecharia em cerca de ' + brl(g.projecao) + (g.projecao > g.meta ? ', acima da meta' : ', dentro da meta') + '. É só uma estimativa: compras grandes mudam bastante.' }));
+    }
+    if (editMeta) card.append(form());
+    else card.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Alterar meta', onclick: function () { editMeta = true; render(); } })));
+    return card;
+  }
+
   function viewHome() {
     if (!S.seen && !S.purchases.length) {
       view.append(h('div', { class: 'card' },
@@ -223,6 +270,7 @@
       card1.append(h('div', { class: 'mute', text: 'A comparação com o mês anterior aparece quando houver pelo menos 2 notas em cada mês.' }));
     }
     view.append(card1);
+    view.append(goalCard());
 
     const inf = Core.personalInflation(S.purchases);
     const card2 = h('div', { class: 'card' }, h('div', { class: 'mute', text: 'Sua inflação do mercado' }));
