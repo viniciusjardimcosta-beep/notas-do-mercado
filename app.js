@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.10';
+  const VERSION = '0.10.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -398,7 +398,8 @@
   function viewAdd() {
     if (pending) return viewReview();
     const msg = h('div', { id: 'msg' });
-    const vid = h('video', { playsinline: true, muted: true, hidden: true, 'aria-label': 'Câmera' });
+    const vid = h('video', { playsinline: true, muted: true, autoplay: true, hidden: true, 'aria-label': 'Câmera' });
+    vid.muted = true; vid.playsInline = true;
     const btnScan = h('button', { class: 'primary', text: 'Escanear QR Code da nota', onclick: function () { startScan(vid, msg); } });
     const inp = h('input', { type: 'text', placeholder: 'Endereço do QR Code ou chave de 44 dígitos', inputmode: 'url', autocomplete: 'off' });
     const btnGo = h('button', { text: 'Buscar nota', onclick: function () { handleInput(inp.value, msg); } });
@@ -483,11 +484,39 @@
   // ---------- câmera ----------
   async function startScan(vid, msg) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return say(msg, 'Este navegador não deixa usar a câmera aqui. Use a opção 2.', true);
+    stopScan();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    } catch (e) { return say(msg, 'Sem permissão para a câmera. Use a opção 2.', true); }
-    vid.hidden = false; vid.srcObject = stream; await vid.play().catch(function () {});
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      } catch (e1) {
+        if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'ConstraintNotSatisfiedError')) stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        else throw e1;
+      }
+    } catch (e) {
+      const n = e && e.name;
+      if (n === 'NotReadableError' || n === 'TrackStartError') return say(msg, 'A câmera está sendo usada por outro app ou aba. Feche os outros e tente de novo, ou use a opção 2.', true);
+      if (n === 'NotFoundError') return say(msg, 'Não encontrei uma câmera neste aparelho. Use a opção 2.', true);
+      return say(msg, 'Sem permissão para a câmera. Permita o acesso nas configurações do navegador ou use a opção 2.', true);
+    }
+    // No Safari do iPhone, "muted" e "playsinline" só valem como propriedade: sem isso o vídeo fica preto.
+    vid.muted = true; vid.defaultMuted = true; vid.playsInline = true; vid.autoplay = true;
+    vid.setAttribute('muted', ''); vid.setAttribute('playsinline', ''); vid.setAttribute('webkit-playsinline', '');
+    vid.hidden = false; vid.srcObject = stream;
+    const tocar = function () { return vid.play(); };
+    try { await tocar(); }
+    catch (e) {
+      // Se o navegador recusar o início automático, um toque na imagem inicia.
+      say(msg, 'Toque na imagem preta para ligar a câmera.', true);
+      vid.addEventListener('click', function () { tocar().then(function () { say(msg, 'Aponte para o QR Code do cupom…'); }, function () {}); }, { once: true });
+    }
     scanning = true;
+    const meuStream = stream;
+    setTimeout(function () {
+      if (scanning && stream === meuStream && !vid.videoWidth) {
+        stopScan(); vid.hidden = true;
+        say(msg, 'A câmera abriu, mas a imagem não apareceu. Feche outros apps e abas que usem a câmera, recarregue a página e tente de novo. Se continuar, use a opção 2.', true);
+      }
+    }, 6000);
     let detector = null, canvas = null, ctx = null;
     if ('BarcodeDetector' in window) {
       try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
@@ -520,6 +549,7 @@
   function stopScan() {
     scanning = false;
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    document.querySelectorAll('video').forEach(function (v) { try { v.srcObject = null; } catch (e) { /* ok */ } });
   }
   function loadJsQR() {
     return new Promise(function (ok, fail) {
