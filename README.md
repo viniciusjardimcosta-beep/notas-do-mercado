@@ -71,6 +71,15 @@ A câmera só funciona em `https` ou `localhost`.
 - **Refazer categorias:** apaga as correções manuais e reaplica a lista de palavras atual.
 - **`app/privacidade.html`:** rascunho da política, com o contato do projeto (caderninhodomercado@gmail.com) já preenchido. Peça revisão jurídica antes de abrir ao público.
 
+## Funcionalidades extras (v0.5 a v0.8)
+
+- **Gráfico de histórico de preço** por produto (tela Preços): toque no ponto para ver data, preço e loja.
+- **Aviso de estado não testado:** só o RS foi testado (`UF_TESTADAS` em `app.js`); em outros estados o erro de leitura mostra o aviso e o plano B. O relatório de problema inclui a UF.
+- **Meta mensal** (Resumo): barra de progresso do mês do calendário, com estimativa de fechamento depois do dia 10.
+- **Quanto paguei?** (Preços): busca por produto com última compra, menor preço e comparação com o preço da prateleira.
+- **Embalagem menor, preço maior:** compara produtos com o mesmo nome e tamanho diferente (3% a 30% menor) em que o preço por kg/litro subiu 3% ou mais. Pode errar quando os dois tamanhos existem juntos; o texto é cauteloso. O preço por kg/litro usa o tamanho do nome de cada compra.
+- **Lista de compras** (Compras → Lista de compras): produtos repetidos em 2 ou mais datas, os que "provavelmente estão acabando" (80% do intervalo médio) primeiro, seleção com estimativa e envio pelo menu Compartilhar. `listaSel` e `listaFora` entram no backup.
+
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
 - Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.

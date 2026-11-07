@@ -160,10 +160,13 @@
   }
 
   // Preço comparável: por kg/litro quando o tamanho é conhecido, senão por unidade.
+  // O tamanho vem do nome de cada compra (a embalagem pode ter mudado entre uma compra e outra);
+  // se o nome daquela compra não traz tamanho, usa o do produto.
   function unitPrice(prod, compra) {
-    if (prod.size && prod.size.valor) {
-      const perBase = compra.vlUnit / prod.size.valor; // R$ por g ou ml
-      return { valor: perBase * 1000, rotulo: prod.size.unidade === 'g' ? 'kg' : 'litro' };
+    const sz = (compra.nome && parseSize(compra.nome)) || prod.size;
+    if (sz && sz.valor) {
+      const perBase = compra.vlUnit / sz.valor; // R$ por g ou ml
+      return { valor: perBase * 1000, rotulo: sz.unidade === 'g' ? 'kg' : 'litro' };
     }
     return { valor: compra.vlUnit, rotulo: compra.un === 'KG' ? 'kg' : 'un' };
   }
@@ -354,6 +357,79 @@
     };
   }
 
+  // "Embalagem menor, preço por kg maior": mesmo nome de produto (sem o tamanho) e mesma unidade,
+  // onde a compra mais recente tem de 3% a 30% menos conteúdo que uma compra anterior e o preço por
+  // kg/litro subiu pelo menos 3%. Não avisa se o tamanho menor já tinha sido comprado antes (os dois
+  // tamanhos provavelmente existem juntos nas prateleiras). Pode errar: o texto na tela é cauteloso.
+  const ENCOLHEU_MIN = 3, ENCOLHEU_MAX = 30, ENCOLHEU_KG_MIN = 3;
+  function shrinkAlerts(purchases) {
+    const grupos = {};
+    buildProducts(purchases).forEach(function (pr) {
+      pr.compras.forEach(function (c) {
+        if (!c.data || !(c.vlUnit > 0)) return;
+        const n = normalizeName(c.nome);
+        if (!n.size || !n.words.length) return;
+        const k = n.words.join(' ') + '|' + n.size.unidade;
+        (grupos[k] = grupos[k] || []).push({ nome: c.nome, size: n.size.valor, unidade: n.size.unidade, data: c.data, vlUnit: c.vlUnit, loja: c.loja, nota: c.nota });
+      });
+    });
+    const out = [];
+    Object.keys(grupos).forEach(function (k) {
+      const L = grupos[k].sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); });
+      if (L.length < 2) return;
+      const B = L[L.length - 1];
+      const antes = L.filter(function (x) { return x.data < B.data; });
+      if (!antes.length) return;
+      if (antes.some(function (x) { return Math.abs(x.size - B.size) / B.size < 0.01; })) return; // o tamanho menor já existia antes
+      let A = null;
+      for (let i = antes.length - 1; i >= 0; i--) {
+        const enc = (1 - B.size / antes[i].size) * 100;
+        if (enc >= ENCOLHEU_MIN && enc <= ENCOLHEU_MAX) { A = antes[i]; break; }
+      }
+      if (!A) return;
+      const kg0 = A.vlUnit / A.size * 1000, kg1 = B.vlUnit / B.size * 1000;
+      const pctKg = (kg1 - kg0) / kg0 * 100;
+      if (pctKg < ENCOLHEU_KG_MIN) return;
+      out.push({
+        nome: B.nome, rotulo: B.unidade === 'g' ? 'kg' : 'litro', unidade: B.unidade,
+        de: { size: A.size, vlUnit: A.vlUnit, data: A.data, loja: A.loja, porKg: kg0 }, para: { size: B.size, vlUnit: B.vlUnit, data: B.data, loja: B.loja, porKg: kg1 },
+        encolheuPct: (1 - B.size / A.size) * 100, pctEmbalagem: (B.vlUnit - A.vlUnit) / A.vlUnit * 100, pctKg: pctKg
+      });
+    });
+    return out.sort(function (a, b) { return b.pctKg - a.pctKg; });
+  }
+
+  // Lista de compras: produtos que você já repetiu (2+ datas diferentes), com o intervalo médio entre
+  // compras. "Acabando" = já passou 80% do intervalo médio desde a última compra. `fora` esconde itens.
+  function dayNum(iso) { const p = String(iso).slice(0, 10).split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]) / 864e5; }
+  function shoppingList(purchases, now, fora) {
+    now = now || new Date();
+    fora = fora || {};
+    const hoje = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 864e5;
+    const out = [];
+    buildProducts(purchases).forEach(function (pr) {
+      if (fora[pr.key]) return;
+      const porData = {};
+      pr.compras.forEach(function (c) { if (c.data) porData[c.data] = c; }); // várias linhas no mesmo dia: vale a última
+      const datas = Object.keys(porData).sort();
+      if (datas.length < 2) return;
+      const ult = porData[datas[datas.length - 1]];
+      const media = (dayNum(datas[datas.length - 1]) - dayNum(datas[0])) / (datas.length - 1);
+      if (!(media >= 1)) return;
+      const diasDesde = Math.max(0, Math.round(hoje - dayNum(ult.data)));
+      const ratio = diasDesde / media;
+      out.push({
+        key: pr.key, nome: pr.nome, categoria: pr.categoria, nCompras: datas.length, ultimaData: ult.data, ultimoPreco: ult.vlUnit, ultimoTotal: ult.vlTotal,
+        loja: ult.loja, intervalo: Math.round(media), diasDesde: diasDesde, ratio: ratio, acabando: ratio >= 0.8
+      });
+    });
+    return out.sort(function (a, b) {
+      if (a.acabando !== b.acabando) return a.acabando ? -1 : 1;
+      if (a.acabando) return b.ratio - a.ratio;
+      return b.nCompras - a.nCompras || a.nome.localeCompare(b.nome);
+    });
+  }
+
   function foldText(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
   // Busca por produto ("Quanto paguei?"): todas as palavras digitadas precisam aparecer no nome
@@ -416,7 +492,7 @@
   }
 
   return {
-    parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts,
+    parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,

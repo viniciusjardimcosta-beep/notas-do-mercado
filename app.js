@@ -9,9 +9,9 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.7.1';
+  const VERSION = '0.8';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0 };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
@@ -271,6 +271,8 @@
     }
     view.append(card1);
     view.append(goalCard());
+    const encolhe = shrinkCard(3, function () { tab = 'prices'; render(); });
+    if (encolhe) view.append(encolhe);
 
     const inf = Core.personalInflation(S.purchases);
     const card2 = h('div', { class: 'card' }, h('div', { class: 'mute', text: 'Sua inflação do mercado' }));
@@ -488,8 +490,75 @@
 
   // ---------- Compras ----------
   let openBuy = null;
+  // ---------- Lista de compras ----------
+  let comprasModo = 'notas'; // 'notas' | 'lista'
+  function viewList() {
+    const L = Core.shoppingList(S.purchases, new Date(), S.listaFora);
+    const nFora = Object.keys(S.listaFora).length;
+    view.append(h('div', { class: 'mute', text: 'Produtos que você já comprou em datas diferentes, com o último valor pago. Marque o que vai comprar e veja a estimativa.' }));
+    if (!L.length) {
+      view.append(h('div', { class: 'card', text: 'Ainda não há produtos comprados em 2 datas diferentes. Depois de mais algumas notas, a lista aparece aqui.' }));
+      if (nFora) view.append(h('button', { class: 'sm', text: 'Mostrar itens escondidos (' + nFora + ')', onclick: function () { S.listaFora = {}; save(); render(); } }));
+      return;
+    }
+    const resumo = h('div', { class: 'card' });
+    const escolhidos = function () { return L.filter(function (x) { return S.listaSel[x.key]; }); };
+    const textoLista = function (sel, total) {
+      return 'Lista de compras (Caderninho do Mercado)\n' + sel.map(function (x) { return '• ' + x.nome + ' (última vez ' + brl(x.ultimoTotal) + ')'; }).join('\n') + '\nEstimativa: ' + brl(total);
+    };
+    const enviar = async function (sel, total) {
+      const text = textoLista(sel, total);
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Lista de compras', text: text }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      try { await navigator.clipboard.writeText(text); toast('Lista copiada. Cole no WhatsApp ou onde quiser.'); }
+      catch (e) { alert(text); }
+    };
+    const atualizarResumo = function () {
+      const sel = escolhidos();
+      const total = Math.round(sel.reduce(function (s, x) { return s + (x.ultimoTotal || 0); }, 0) * 100) / 100;
+      resumo.replaceChildren(
+        h('div', { class: 'mute', text: 'Sua lista' }),
+        h('div', { class: 'big', text: sel.length ? brl(total) : '—' }),
+        h('div', { class: 'mute', text: sel.length ? sel.length + (sel.length === 1 ? ' item' : ' itens') + ' · estimativa pelo que você pagou da última vez' : 'Marque os itens que vai comprar para ver a estimativa.' }),
+        h('div', { class: 'flex', style: 'margin-top:10px' },
+          h('button', { class: 'primary', text: 'Enviar lista', disabled: sel.length ? false : true, onclick: function () { enviar(sel, total); } }),
+          h('button', { text: 'Limpar', disabled: sel.length ? false : true, onclick: function () { S.listaSel = {}; save(); render(); } })));
+    };
+    const acabando = L.filter(function (x) { return x.acabando; });
+    const outros = L.filter(function (x) { return !x.acabando; });
+    view.append(resumo);
+    if (acabando.length) view.append(h('div', { class: 'flex' }, h('button', { class: 'sm', text: 'Marcar os que provavelmente estão acabando', onclick: function () {
+      acabando.forEach(function (x) { S.listaSel[x.key] = true; }); save(); render();
+    } })));
+    const secao = function (titulo, dica, itens) {
+      if (!itens.length) return;
+      const card = h('div', { class: 'card' }, h('h2', { text: titulo + ' (' + itens.length + ')' }), h('div', { class: 'mute', text: dica }));
+      itens.slice(0, 40).forEach(function (x) {
+        const cb = h('input', { type: 'checkbox', checked: !!S.listaSel[x.key], 'aria-label': 'Incluir ' + x.nome + ' na lista' });
+        cb.addEventListener('change', function () { if (cb.checked) S.listaSel[x.key] = true; else delete S.listaSel[x.key]; save(); atualizarResumo(); });
+        card.append(h('div', { class: 'lista-item' },
+          h('label', { class: 'lista-row' }, cb,
+            h('div', { class: 'n' }, x.nome,
+              h('div', { class: 'mute', text: 'Última vez ' + brl(x.ultimoTotal) + ' em ' + dataBR(x.ultimaData).slice(0, 5) + ' (há ' + x.diasDesde + (x.diasDesde === 1 ? ' dia' : ' dias') + ')' + (x.loja ? ' · ' + x.loja : '') }),
+              h('div', { class: 'mute', text: 'Você costuma comprar a cada ' + x.intervalo + (x.intervalo === 1 ? ' dia' : ' dias') + ', em ' + x.nCompras + ' compras.' }))),
+          h('button', { class: 'sm', text: 'Esconder', 'aria-label': 'Esconder ' + x.nome + ' da lista', onclick: function () { S.listaFora[x.key] = true; delete S.listaSel[x.key]; save(); render(); } })));
+      });
+      view.append(card);
+    };
+    secao('Provavelmente acabando', 'Já passou boa parte do intervalo médio entre as suas compras desse produto.', acabando);
+    secao('Outros que você compra', 'Comprados há pouco tempo, em relação ao seu ritmo.', outros);
+    if (nFora) view.append(h('button', { class: 'sm', text: 'Mostrar itens escondidos (' + nFora + ')', onclick: function () { S.listaFora = {}; save(); render(); } }));
+    atualizarResumo();
+  }
+
   function viewBuys() {
     if (!S.purchases.length) return view.append(h('div', { class: 'card', text: 'Nenhuma nota ainda.' }));
+    view.append(h('div', { class: 'flex', style: 'margin-bottom:6px' },
+      h('button', { class: comprasModo === 'notas' ? 'primary' : '', 'aria-pressed': String(comprasModo === 'notas'), text: 'Notas', onclick: function () { comprasModo = 'notas'; render(); } }),
+      h('button', { class: comprasModo === 'lista' ? 'primary' : '', 'aria-pressed': String(comprasModo === 'lista'), text: 'Lista de compras', onclick: function () { comprasModo = 'lista'; render(); } })));
+    if (comprasModo === 'lista') return viewList();
     // acha o produto de cada item para mostrar e corrigir a categoria
     const byItem = {};
     Core.buildProducts(S.purchases).forEach(function (pr) { pr.compras.forEach(function (c) { byItem[c.nota + '|' + c.nome] = pr; }); });
@@ -623,8 +692,33 @@
     return card;
   }
 
+  // "Embalagem menor, preço por kg maior". Texto cauteloso: o app só vê o nome na nota.
+  function fmtSize(v, un) {
+    const n = function (x) { return String(Math.round(x * 100) / 100).replace('.', ','); };
+    if (un === 'g') return v >= 1000 ? n(v / 1000) + ' kg' : n(v) + ' g';
+    return v >= 1000 ? n(v / 1000) + ' L' : n(v) + ' ml';
+  }
+  function shrinkCard(limite, verTodos) {
+    const lista = Core.shrinkAlerts(S.purchases);
+    if (!lista.length) return null;
+    const card = h('div', { class: 'card' }, h('h2', { text: 'Embalagem menor, preço maior' }),
+      h('div', { class: 'mute', text: 'Mesmo produto com menos conteúdo. Confira a embalagem: se os dois tamanhos existem juntos na prateleira, pode não ser redução.' }));
+    lista.slice(0, limite || 20).forEach(function (a) {
+      card.append(h('div', { class: 'row', style: 'display:block' },
+        h('div', null, h('strong', { text: a.nome })),
+        h('div', { text: fmtSize(a.de.size, a.unidade) + ' → ' + fmtSize(a.para.size, a.unidade) + ' (' + pct(-a.encolheuPct) + ' de conteúdo)' }),
+        h('div', { class: 'mute', text: 'Embalagem: ' + brl(a.de.vlUnit) + ' → ' + brl(a.para.vlUnit) + (Math.abs(a.pctEmbalagem) < 0.5 ? ' (mesmo preço)' : ' (' + pct(a.pctEmbalagem) + ')') }),
+        h('div', null, 'Por ' + a.rotulo + ': ' + brl(a.de.porKg) + ' → ' + brl(a.para.porKg) + ' ', h('span', { class: 'up', text: pct(a.pctKg) }))));
+    });
+    if (lista.length > (limite || 20)) card.append(h('div', { class: 'mute', text: 'e mais ' + (lista.length - limite) + '.' }));
+    if (verTodos) card.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Ver em Preços', onclick: verTodos })));
+    return card;
+  }
+
   function viewPrices() {
     view.append(buscaCard());
+    const enc = shrinkCard(20);
+    if (enc) view.append(enc);
     const ch = Core.priceChanges(S.purchases);
     const card = h('div', { class: 'card' }, h('h2', { text: 'O que mudou de preço' }),
       h('div', { class: 'mute', text: 'Primeiro preço comparado ao último, por kg, litro ou unidade. Produtos parecidos são agrupados pelo nome; confira se faz sentido.' }));
