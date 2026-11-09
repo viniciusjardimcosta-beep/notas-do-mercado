@@ -54,6 +54,8 @@ A câmera só funciona em `https` ou `localhost`.
 
 **Custo:** segundo a documentação da Cloudflare, o plano grátis do Workers inclui 100.000 requisições por dia e 10 ms de CPU por chamada, bem acima do uso pessoal. A página não diz se o cadastro pede cartão de crédito. Confira na hora do cadastro.
 
+**Limite de consultas (v0.10.3):** o Worker barra um mesmo endereço de rede depois de 60 consultas por minuto (resposta 429, e o app mostra "Espere um minuto"). Uma pessoa usa 1 consulta por nota, então o limite só pega scripts. A contagem fica na memória do Worker, por instância: é um freio aproximado. Para um limite exato, crie um *Rate Limiting binding* chamado `LIMITER` no Worker (Cloudflare: Settings → Bindings); se ele existir, o código usa o binding no lugar da contagem em memória. Acompanhe o uso no painel da Cloudflare (Workers → Metrics); o plano grátis inclui 100.000 pedidos por dia.
+
 **Segurança:** o proxy só responde ao site do app (`ALLOWED_ORIGIN` no topo do `worker.js`; se mudar o endereço do app, mude lá também), só busca endereços `.gov.br` de fazenda/sefaz, não guarda nem registra nada. A lista de permitidos foi conferida em 09/11/2026 contra os endereços de consulta publicados de todas as UFs (a regra aceita qualquer `.gov.br` com fazenda, sefaz, sefin, sef., sefa., nfce, receita, svrs, dfe ou `set.` no nome). Isso corrigiu o Pará (`appnfc.sefa.pa.gov.br`), que seria recusado. O que isso **não** garante: o layout da página de cada estado. Se uma nota for recusada com "Site não permitido", me avise.
 
 ## Menos trabalho por nota

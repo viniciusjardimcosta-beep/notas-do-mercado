@@ -12,6 +12,23 @@ const ALLOWED_ORIGINS = [
   'https://viniciusjardimcosta-beep.github.io'
 ];
 
+// Limite de consultas por endereço de rede, contra scripts que gastariam a cota.
+// 60 por minuto é folgado para uma pessoa (1 nota = 1 consulta) e aguenta várias pessoas atrás do mesmo IP de operadora.
+// Guarda na memória do Worker: cada instância conta separado, então é um freio aproximado, não exato.
+// Se existir um "Rate Limiting binding" chamado LIMITER (opcional, veja o README), ele é usado no lugar.
+const LIMITE = 60, JANELA_MS = 60 * 1000, MAX_IPS = 5000;
+const visitas = new Map();
+function estourou(ip, agora) {
+  let v = visitas.get(ip);
+  if (!v || agora - v.ini >= JANELA_MS) { v = { ini: agora, n: 0 }; visitas.set(ip, v); }
+  v.n++;
+  if (visitas.size > MAX_IPS) { // limpeza: tira o que já venceu
+    for (const [k, x] of visitas) if (agora - x.ini >= JANELA_MS) visitas.delete(k);
+    if (visitas.size > MAX_IPS) visitas.clear();
+  }
+  return v.n > LIMITE;
+}
+
 function allowedHost(h) {
   // sefa. = Pará (appnfc.sefa.pa.gov.br); set. = Rio Grande do Norte (domínio antigo, ancorado para não casar com "reset.")
   return h.endsWith('.gov.br') && /(fazenda|sefaz|sefin|sef\.|nfce|receita|svrs|dfe|(^|\.)(sefa|set)\.)/.test(h);
@@ -35,7 +52,7 @@ function charsetOf(contentType, bytes) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const origin = request.headers.get('Origin');
     if (ALLOWED_ORIGINS.indexOf(origin) < 0) return new Response('Origem não permitida', { status: 403 });
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
@@ -45,6 +62,12 @@ export default {
     try { target = new URL(u); } catch (e) { return new Response('Endereço inválido', { status: 400, headers: cors(origin) }); }
     if (target.protocol !== 'https:' && target.protocol !== 'http:') return new Response('Protocolo não permitido', { status: 400, headers: cors(origin) });
     if (!allowedHost(target.hostname)) return new Response('Site não permitido', { status: 403, headers: cors(origin) });
+
+    const ip = request.headers.get('CF-Connecting-IP') || 'sem-ip';
+    let barrado;
+    if (env && env.LIMITER && typeof env.LIMITER.limit === 'function') barrado = !(await env.LIMITER.limit({ key: ip })).success;
+    else barrado = estourou(ip, Date.now());
+    if (barrado) return new Response('Muitas consultas seguidas. Espere um minuto.', { status: 429, headers: cors(origin, { 'Retry-After': '60' }) });
 
     const r = await fetch(target.toString(), {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NotasApp/0.1)', 'Accept': 'text/html,*/*' },

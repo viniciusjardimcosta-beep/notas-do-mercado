@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.10.2';
+  const VERSION = '0.10.3';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -446,6 +446,7 @@
     try {
       const px = proxyUrl();
       const res = await fetch(px + (px.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
+      if (res.status === 429) { lastRead.summary = 'limite do proxy'; return say(msg, 'Muitas consultas seguidas. Espere um minuto e tente de novo.', true); }
       if (!res.ok) { lastRead.summary = 'erro HTTP ' + res.status; return say(msg, 'O site da SEFAZ respondeu com erro ' + res.status + '. Tente o plano B.' + dicaUf(ufNota), true); }
       const text = await res.text();
       handleText(text, msg, raw);
