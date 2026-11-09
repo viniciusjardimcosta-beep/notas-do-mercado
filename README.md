@@ -89,7 +89,7 @@ A câmera só funciona em `https` ou `localhost`.
 
 - O Safari do iPhone mostrava a câmera ligada com imagem preta porque `muted` e `playsinline` estavam só como atributo. Agora são definidos como propriedade; se o início automático for recusado, um toque na imagem liga; se nenhuma imagem aparecer em 6 s, o app explica o que fazer.
 - O leitor de QR (jsQR 1.4.0, Apache-2.0, `app/jsQR.js`) agora vem junto com o app, em vez de ser baixado do cdnjs. O iPhone não tem `BarcodeDetector`, então depende dele para escanear. Teste de decodificação em `tests/browser.test.js` com imagem em `tests/fixtures/qr.png`.
-- **Não testado:** câmera real em iPhone. Os testes usam a câmera simulada do Chromium.
+- **Confirmado em iPhone real (Safari) em 09/11/2026**, por um testador, depois da v0.10.2. Os testes automáticos usam a câmera simulada do Chromium. Android ainda sem confirmação.
 
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
