@@ -13,7 +13,8 @@ const ALLOWED_ORIGINS = [
 ];
 
 function allowedHost(h) {
-  return h.endsWith('.gov.br') && /(fazenda|sefaz|sefin|sef\.|nfce|receita|svrs|dfe)/.test(h);
+  // sefa. = Pará (appnfc.sefa.pa.gov.br); set. = Rio Grande do Norte (domínio antigo, ancorado para não casar com "reset.")
+  return h.endsWith('.gov.br') && /(fazenda|sefaz|sefin|sef\.|nfce|receita|svrs|dfe|(^|\.)(sefa|set)\.)/.test(h);
 }
 
 function cors(origin, extra) {

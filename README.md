@@ -54,7 +54,7 @@ A câmera só funciona em `https` ou `localhost`.
 
 **Custo:** segundo a documentação da Cloudflare, o plano grátis do Workers inclui 100.000 requisições por dia e 10 ms de CPU por chamada, bem acima do uso pessoal. A página não diz se o cadastro pede cartão de crédito. Confira na hora do cadastro.
 
-**Segurança:** o proxy só responde ao site do app (`ALLOWED_ORIGIN` no topo do `worker.js`; se mudar o endereço do app, mude lá também), só busca endereços `.gov.br` de fazenda/sefaz, não guarda nem registra nada. Os domínios de SP, PR e SC na lista de permitidos foram escritos de memória e não foram conferidos: se uma nota de algum estado for recusada com "Site não permitido", me avise.
+**Segurança:** o proxy só responde ao site do app (`ALLOWED_ORIGIN` no topo do `worker.js`; se mudar o endereço do app, mude lá também), só busca endereços `.gov.br` de fazenda/sefaz, não guarda nem registra nada. A lista de permitidos foi conferida em 09/11/2026 contra os endereços de consulta publicados de todas as UFs (a regra aceita qualquer `.gov.br` com fazenda, sefaz, sefin, sef., sefa., nfce, receita, svrs, dfe ou `set.` no nome). Isso corrigiu o Pará (`appnfc.sefa.pa.gov.br`), que seria recusado. O que isso **não** garante: o layout da página de cada estado. Se uma nota for recusada com "Site não permitido", me avise.
 
 ## Menos trabalho por nota
 
