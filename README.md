@@ -195,3 +195,8 @@ A política de privacidade foi atualizada com uma frase sobre isso.
 
 - Lembrete de backup a cada 14 dias (antes 30). O primeiro já aparece a partir da 3ª nota.
 - "Para onde foi o dinheiro" passa a usar só os últimos 12 meses, como inflação e alertas. Quando há notas mais antigas, o título mostra "(últimos 12 meses)".
+
+## Página de apresentação (atualização de 10/11/2026)
+
+- Título agora é uma pergunta: "Para onde vai o seu dinheiro no mercado?". O link do exemplo virou "Ver como funciona, sem escanear nada".
+- Nova seção da lista de compras (imagem fictícia `img/lista.webp`), bloco "Para quem controla o mercado sem planilha" e uma pergunta nova no FAQ (a lista exige ao menos uma nota).
