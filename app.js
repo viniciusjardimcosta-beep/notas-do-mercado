@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.13.1';
+  const VERSION = '0.14.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -850,6 +850,13 @@
           it.preco = v; refresca();
         });
         meio.append(campo);
+        // item digitado que lembra algo já comprado: oferece ligar ao produto para usar o último preço
+        Core.catalogo(S.purchases, it.nome, 6).filter(function (c) { return !jaTem(c.key); }).slice(0, 2).forEach(function (c) {
+          meio.append(h('div', { class: 'mute', style: 'margin-top:6px' }, 'Já comprou: ' + c.nome + ' (' + brl(c.ultima.vlUnit) + ') ',
+            h('button', { class: 'sm', text: 'Usar este', 'aria-label': 'Usar ' + c.nome + ' no lugar de ' + it.nome, onclick: function () {
+              it.key = c.key; it.nome = c.nome; it.qtd = Core.qtdSugerida(c.ultima); it.preco = null; refresca();
+            } })));
+        });
       }
       const q = h('div', { class: 'qtd' },
         h('button', { class: 'sm', text: '−', 'aria-label': 'Diminuir quantidade de ' + it.nome, onclick: function () { it.qtd = Math.max(passo, Math.round((it.qtd - passo) * 1000) / 1000); refresca(); } }),

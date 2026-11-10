@@ -402,6 +402,13 @@ function nota(itens, data, loja) {
   // quantidade
   await pL.click('button[aria-label^="Aumentar quantidade de BISC"]');
   assert.ok(/2 × R\$\s3,30 = R\$\s6,60/.test(await pL.innerText('#view')) && /Falta pegar R\$\s18,10/.test(await pL.innerText('#view')));
+  // item digitado parecido com algo já comprado: oferece "Usar este" e passa a usar o último preço
+  await pL.fill('#lista-busca', 'leite'); await pL.locator('#lista-resultados button:has-text("Adicionar como novo")').click();
+  assert.ok(/Já comprou: LEITE INTEGRAL 1L/.test(await pL.innerText('#view')), 'sugere o produto conhecido');
+  await pL.click('button[aria-label^="Usar LEITE INTEGRAL 1L no lugar de leite"]');
+  vL = await pL.innerText('#view');
+  assert.ok(/1 × R\$\s5,50 = R\$\s5,50/.test(vL) && !/Já comprou: LEITE/.test(vL), vL);
+  await pL.click('button[aria-label="Remover LEITE INTEGRAL 1L da lista"]');
   // marcar: sai de "Falta pegar" e vai para "No carrinho"
   await pL.click('input[aria-label="Peguei: BISC REC OREO 80G"], input[aria-label^="Peguei: BISC"]');
   vL = await pL.innerText('#view');

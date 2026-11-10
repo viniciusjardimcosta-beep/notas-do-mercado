@@ -175,3 +175,7 @@ tests/     unit.test.js (sem navegador) e browser.test.js (precisa de playwright
 - O botão do cartão mostra quantos itens faltam pegar e abre a lista.
 - Android: pressionar o ícone do app mostra "Anotar na lista" (`shortcuts` no manifesto, abre `?anotar=1` com o campo em foco). No iPhone não existe esse recurso.
 - Sem notificações push de propósito: exigiriam servidor e identificar a pessoa.
+
+## Item digitado parecido com produto já comprado (v0.14)
+
+- Na lista, o item novo (sem produto) que bate com algo já comprado mostra "Já comprou: X (preço) · Usar este". Ao tocar, o item passa a ser o produto conhecido: usa o último preço e a quantidade da última compra.
