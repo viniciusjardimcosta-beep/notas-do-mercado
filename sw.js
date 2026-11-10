@@ -1,5 +1,5 @@
 /* Service worker: deixa o app abrir sem internet. Não guarda dados de compras (esses ficam no aparelho). */
-const CACHE = 'notas-v15';
+const CACHE = 'notas-v16';
 const FILES = ['./', './index.html', './app.js', './parser.js', './core.js', './jsQR.js', './manifest.webmanifest', './icon.svg', './privacidade.html'];
 
 self.addEventListener('install', function (e) {
@@ -17,5 +17,5 @@ self.addEventListener('fetch', function (e) {
     const copy = res.clone();
     caches.open(CACHE).then(function (c) { c.put(req, copy); });
     return res;
-  }).catch(function () { return caches.match(req); }));
+  }).catch(function () { return caches.match(req, { ignoreSearch: true }); }));
 });

@@ -9,14 +9,17 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.10.5';
+  const VERSION = '0.11.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
   let S = (function () {
     try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
   })();
-  function save() { store.set(JSON.stringify(S)); }
+  // Modo exemplo: S passa a ser um conjunto fictício só na memória e save() não grava nada.
+  // As notas reais ficam guardadas em REAL, intactas, até a pessoa sair do exemplo.
+  let DEMO = false, REAL = null;
+  function save() { if (DEMO) return; store.set(JSON.stringify(S)); }
   // Endereço do proxy: o que a pessoa digitou em Ajustes ou, se vazio, o padrão do app (index.html).
   function proxyUrl() { return S.proxy || CFG.proxy || ''; }
   // Migração: quem salvou o endereço do proxy em Ajustes antes da troca de subdomínio ficaria preso ao endereço antigo,
@@ -30,7 +33,7 @@
   const DIA = 864e5;
   function markBackup() { S.lastBackup = new Date().toISOString(); save(); }
   function needsBackup() {
-    if (S.purchases.length < 3) return false;
+    if (DEMO || S.purchases.length < 3) return false;
     const agora = Date.now();
     const last = S.lastBackup ? Date.parse(S.lastBackup) : 0;
     const snooze = S.backupSnooze ? Date.parse(S.backupSnooze) : 0;
@@ -38,6 +41,7 @@
   }
   // Abre o menu Compartilhar do celular (Drive, WhatsApp, e-mail…). Sem suporte, baixa o arquivo.
   async function exportBackup() {
+    if (DEMO) return false;
     const name = 'notas-' + new Date().toISOString().slice(0, 10) + '.json';
     const json = JSON.stringify(S, null, 1);
     const tipos = ['application/json', 'text/plain'];
@@ -167,13 +171,56 @@
     document.querySelectorAll('nav button').forEach(function (b) {
       if (b.dataset.t === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
-    sub.textContent = S.purchases.length + (S.purchases.length === 1 ? ' nota guardada' : ' notas guardadas') + ' neste aparelho';
+    sub.textContent = DEMO ? 'Exemplo com dados fictícios' : S.purchases.length + (S.purchases.length === 1 ? ' nota guardada' : ' notas guardadas') + ' neste aparelho';
+    if (DEMO) view.append(faixaExemplo());
     ({ home: viewHome, add: viewAdd, buys: viewBuys, prices: viewPrices, cfg: viewCfg })[tab]();
   }
   document.getElementById('nav').addEventListener('click', function (e) {
     const b = e.target.closest('button'); if (!b) return;
-    tab = b.dataset.t; render();
+    const t = b.dataset.t;
+    if (DEMO && t === 'add') { exitDemo('add'); return; }
+    tab = t; render();
   });
+
+  // ---------- Modo exemplo ----------
+  const pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+  function isoLocal(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  // Nove notas fictícias, uma a cada 4 semanas, a última de hoje (assim o mês atual e a janela de 12 meses sempre fazem sentido).
+  function buildDemo() {
+    const FIM = { 'LEITE INTEGRAL 1L': 1.14, 'ARROZ TIPO 1 5KG': 1.07, 'FEIJAO PRETO 1KG': 1.04, 'CAFE TORRADO MOIDO 500G': 1.26, 'OLEO DE SOJA 900ML': 0.97, 'FRANGO CONGELADO KG': 1.09, 'BANANA PRATA KG': 1.18, 'DETERGENTE 500ML': 1.05, 'SABONETE 90G': 1.03 };
+    const BASE = [['LEITE INTEGRAL 1L', 'UN', 12, 4.6], ['ARROZ TIPO 1 5KG', 'UN', 1, 24.5], ['FEIJAO PRETO 1KG', 'UN', 2, 7.9], ['CAFE TORRADO MOIDO 500G', 'UN', 1, 18.9], ['OLEO DE SOJA 900ML', 'UN', 2, 7.4],
+      ['FRANGO CONGELADO KG', 'KG', 2.2, 12.9], ['BANANA PRATA KG', 'KG', 1.5, 6.9], ['DETERGENTE 500ML', 'UN', 3, 2.6], ['SABONETE 90G', 'UN', 4, 2.4]];
+    const RUIDO = [0, 0.01, -0.005, 0.012, 0.006, 0.015, -0.004, 0.01, 0];
+    const hoje = new Date(); const purchases = [];
+    for (let i = 0; i < 9; i++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - (8 - i) * 28);
+      const items = BASE.map(function (b, k) {
+        const vu = +(b[3] * (1 + (FIM[b[0]] - 1) * (i / 8) + RUIDO[i])).toFixed(2);
+        return { nome: b[0], codigo: String(7001 + k), qtd: b[2], un: b[1], vlUnit: vu, vlTotal: +(b[2] * vu).toFixed(2) };
+      });
+      if (i === 5) items.push({ nome: 'BISC RECHEADO CHOC 90G', codigo: '7501', qtd: 3, un: 'UN', vlUnit: 3.5, vlTotal: 10.5 });
+      if (i === 7) items.push({ nome: 'BISC RECHEADO CHOC 80G', codigo: '7502', qtd: 3, un: 'UN', vlUnit: 3.5, vlTotal: 10.5 });
+      purchases.push({ id: 'exemplo-' + i, date: isoLocal(d), store: { name: 'SUPERMERCADO CENTRAL', cnpj: '11222333000181' },
+        total: +items.reduce(function (t, x) { return t + x.vlTotal; }, 0).toFixed(2), items: items });
+    }
+    return Object.assign({}, defaults, { purchases: purchases, meta: 900, seen: true, lastBackup: new Date().toISOString() });
+  }
+  function resetTela() { editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
+  function enterDemo() {
+    if (DEMO) return;
+    REAL = S; S = buildDemo(); DEMO = true; tab = 'home'; resetTela(); render();
+  }
+  function exitDemo(destino) {
+    if (!DEMO) return;
+    S = REAL; REAL = null; DEMO = false; tab = destino || 'home'; resetTela(); render();
+  }
+  function faixaExemplo() {
+    return h('div', { class: 'exemplo-faixa', role: 'status' },
+      h('div', null, h('strong', { text: 'Dados de exemplo.' }), ' Nada é salvo.'),
+      h('div', { class: 'flex' },
+        h('button', { class: 'primary sm', text: 'Usar minhas notas', onclick: function () { exitDemo('add'); } }),
+        h('button', { class: 'sm', text: 'Sair do exemplo', onclick: function () { exitDemo('home'); } })));
+  }
 
   // ---------- Resumo ----------
   // Meta mensal: barra de progresso do mês atual. O estado vai em texto, não só em cor.
@@ -267,6 +314,7 @@
     return c;
   }
   async function shareCard() {
+    if (DEMO) return;
     const st = shareStats();
     const canvas = drawShareCard(st);
     const blob = await new Promise(function (ok) { canvas.toBlob(ok, 'image/png'); });
@@ -289,6 +337,7 @@
     else if (navigator.clipboard) navigator.clipboard.writeText(texto).then(function () { toast('Convite copiado.'); }, function () { alert('Não consegui copiar.'); });
   }
   function shareHomeCard() {
+    if (DEMO) return null;
     const st = shareStats();
     if (st.pct == null && !st.encolheu) return null;
     return h('div', { class: 'card' }, h('strong', { text: 'Mostre para um amigo' }),
@@ -307,14 +356,18 @@
         h('div', { class: 'warn', text: 'Este app está em teste: confira os valores e avise se algo vier errado (Ajustes → Enviar problema).' }),
         h('p', { class: 'mute' }, 'Suas compras ficam só neste aparelho. Ao ler uma nota, o endereço dela passa por um serviço de leitura que não guarda nada. ',
           h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }), '.'),
-        h('button', { class: 'primary', text: 'Entendi, começar', onclick: function () { S.seen = true; save(); tab = 'add'; render(); } })));
+        h('div', { class: 'flex' },
+          h('button', { class: 'primary', text: 'Entendi, começar', onclick: function () { S.seen = true; save(); tab = 'add'; render(); } }),
+          h('button', { text: 'Ver com dados de exemplo', onclick: enterDemo }))));
       return;
     }
     if (!S.purchases.length) {
       view.append(h('div', { class: 'card' },
         h('div', { class: 'big', text: 'Comece pela primeira nota' }),
         h('p', { class: 'mute', text: 'Escaneie o QR Code da nota fiscal do mercado. O app lê os itens e mostra, depois de algumas compras, o que subiu de preço e onde dá para cortar.' }),
-        h('button', { class: 'primary', text: 'Adicionar nota', onclick: function () { tab = 'add'; render(); } })));
+        h('div', { class: 'flex' },
+          h('button', { class: 'primary', text: 'Adicionar nota', onclick: function () { tab = 'add'; render(); } }),
+          h('button', { text: 'Ver com dados de exemplo', onclick: enterDemo }))));
       return;
     }
     if (alertas && alertas.itens.length) {
@@ -925,6 +978,17 @@
 
   // ---------- Ajustes ----------
   function viewCfg() {
+    if (DEMO) {
+      view.append(h('div', { class: 'card' }, h('h2', { text: 'Você está no exemplo' }),
+        h('div', { class: 'mute', text: 'Os ajustes, o backup e o compartilhamento ficam desligados aqui, para os dados de exemplo nunca se misturarem com os seus.' }),
+        h('div', { class: 'flex', style: 'margin-top:10px' },
+          h('button', { class: 'primary', text: 'Usar minhas notas', onclick: function () { exitDemo('add'); } }),
+          h('button', { text: 'Sair do exemplo', onclick: function () { exitDemo('home'); } }))),
+        h('div', { class: 'card' }, h('h2', { text: 'Sobre' }),
+          h('div', { class: 'mute', text: 'Caderninho do Mercado, versão ' + VERSION + '. Em teste.' }),
+          h('div', { style: 'margin-top:8px' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }))));
+      return;
+    }
     const autoCb = h('input', { type: 'checkbox', id: 'auto', checked: S.auto });
     autoCb.addEventListener('change', function () { S.auto = autoCb.checked; save(); });
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Salvar nota automaticamente' }),
@@ -982,6 +1046,10 @@
       h('div', { class: 'mute', text: 'Abre o menu Compartilhar com uma mensagem pronta e o endereço do app.' }),
       h('div', { style: 'margin-top:8px' }, h('button', { class: 'primary', text: 'Indicar o app', onclick: inviteFriend }))));
 
+    view.append(h('div', { class: 'card' }, h('h2', { text: 'Ver com dados de exemplo' }),
+      h('div', { class: 'mute', text: 'Abre o app com notas fictícias, sem mexer nas suas. Para sair, é só tocar em Sair do exemplo.' }),
+      h('div', { style: 'margin-top:8px' }, h('button', { text: 'Ver exemplo', onclick: enterDemo }))));
+
     view.append(h('div', { class: 'card' }, h('h2', { text: 'Sobre' }),
       h('div', { class: 'mute', text: 'Caderninho do Mercado, versão ' + VERSION + '. Em teste.' }),
       h('div', { style: 'margin-top:8px' }, h('a', { href: 'privacidade.html', target: '_blank', rel: 'noopener', text: 'Política de privacidade' }))));
@@ -1006,6 +1074,7 @@
   }
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
+  try { if (new URLSearchParams(location.search).has('exemplo')) { history.replaceState(null, '', location.pathname); enterDemo(); } } catch (e) { /* ignora */ }
   render();
 
   // Quando o app recebe um endereço pelo menu "Compartilhar" do celular

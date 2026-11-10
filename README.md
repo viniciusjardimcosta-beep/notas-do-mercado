@@ -102,6 +102,14 @@ A câmera só funciona em `https` ou `localhost`.
 - Testes: `node tests/site.test.js` (sem links externos, arquivos existem, sem estouro lateral em 360 a 1280 px, imagens e fontes carregam).
 - Afirmações da página que precisam continuar verdadeiras: "grátis" (hoje), "RS validado, outros estados em teste", "não guarda CPF", "sem cadastro". Se algo mudar (plano Pro, novos estados), atualize a página junto.
 
+## Modo exemplo (v0.11)
+
+- **O que é:** o app abre com 9 notas fictícias (uma a cada 4 semanas, a última de hoje) para a pessoa ver o resultado antes de escanear. Entradas: botão "Ver com dados de exemplo" nas boas-vindas e na tela vazia, "Ver exemplo" em Ajustes e o link `/?exemplo` (usado pela página de apresentação).
+- **Isolamento:** `S` passa a ser o conjunto fictício só na memória, `save()` não grava nada e as notas reais ficam guardadas em `REAL` até sair. Recarregar a página também sai do exemplo. Testado: dados reais idênticos byte a byte depois de usar o exemplo, e nada gravado em aparelho vazio.
+- **Desligado dentro do exemplo:** compartilhar imagem (para ninguém divulgar a inflação fictícia como sua), backup e aviso de backup, importar, apagar tudo, ajustes e adicionar nota (sai do exemplo e vai para Adicionar).
+- Faixa amarela fixa no topo com "Usar minhas notas" e "Sair do exemplo".
+- O service worker agora casa o cache ignorando `?...` quando está sem internet.
+
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
 - Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.
