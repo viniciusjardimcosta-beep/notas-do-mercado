@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.14.0';
+  const VERSION = '0.14.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -818,7 +818,7 @@
           S.lista.push({ id: novoId(), key: null, nome: q, qtd: 1, preco: p, feito: false });
           listaAbrir = true; listaBusca = ''; refresca();
         };
-        resultados.append(h('div', { class: 'li', style: 'flex-wrap:wrap' },
+        resultados.append(h('div', { class: 'li li-novo' },
           h('div', { class: 'n' }, 'Outro: “' + q + '”', h('div', { class: 'mute', text: 'Item que você ainda não comprou. Você pode informar o preço.' })),
           preco,
           h('button', { class: 'sm primary', text: 'Adicionar como novo', onclick: novo })));
