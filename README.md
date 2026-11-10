@@ -168,3 +168,10 @@ tests/     unit.test.js (sem navegador) e browser.test.js (precisa de playwright
 - Marcar no mercado move o item para "No carrinho". "Enviar lista" manda só o que falta pegar.
 - "Provavelmente acabando" virou sugestão (adicionar um a um ou todos). A seleção antiga (`listaSel`) é migrada para itens.
 - Teste em celular real ainda pendente (só Playwright).
+
+## Anotar rápido (v0.13)
+
+- A tela inicial tem o cartão "Lista de compras": campo para anotar o que falta, com sugestões dos produtos já comprados e opção "Anotar como novo". Enter anota o primeiro produto conhecido ou, se não houver, um item novo. Repetido não duplica.
+- O botão do cartão mostra quantos itens faltam pegar e abre a lista.
+- Android: pressionar o ícone do app mostra "Anotar na lista" (`shortcuts` no manifesto, abre `?anotar=1` com o campo em foco). No iPhone não existe esse recurso.
+- Sem notificações push de propósito: exigiriam servidor e identificar a pessoa.

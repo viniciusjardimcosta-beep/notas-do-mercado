@@ -446,6 +446,37 @@ function nota(itens, data, loja) {
   await ctxL.close();
   console.log('ok   embalagem menor e lista de compras');
 
+  // 6i3b) anotar rápido na tela inicial
+  const ctxA = await browser.newContext({ viewport: { width: 390, height: 800 } });
+  await ctxA.addInitScript(s => { window.NOTAS_CONFIG = { proxy: '' }; if (!localStorage.getItem('notas.v1')) localStorage.setItem('notas.v1', JSON.stringify(s)); }, { seen: true, purchases: [
+    mkN('a', '2026-08-05', 'MERCADO A', [mkIt('LEITE INTEGRAL 1L', '2', 5.0), mkIt('CAFE TORRADO 500G', '9', 18.0)]),
+    mkN('b', '2026-09-05', 'MERCADO A', [mkIt('LEITE INTEGRAL 1L', '2', 5.2), mkIt('CAFE TORRADO 500G', '9', 19.0)])
+  ] });
+  const pA = await ctxA.newPage();
+  await pA.goto(base);
+  assert.ok(/Lista de compras/.test(await pA.innerText('#anota-card')) && /Abrir lista/.test(await pA.innerText('#anota-card')));
+  await pA.fill('#anota-q', 'caf');
+  assert.ok(/CAFE TORRADO 500G/.test(await pA.innerText('#anota-sug')) && /Anotar como novo/.test(await pA.innerText('#anota-sug')));
+  await pA.click('#anota-sug button[aria-label^="Anotar CAFE"]');
+  assert.ok(/1 item · abrir/.test(await pA.innerText('#anota-card')) && (await pA.inputValue('#anota-q')) === '', 'anota e limpa o campo');
+  await pA.fill('#anota-q', 'pilha'); await pA.keyboard.press('Enter');
+  assert.ok(/2 itens · abrir/.test(await pA.innerText('#anota-card')), 'Enter anota item novo');
+  await pA.fill('#anota-q', 'pilha'); await pA.keyboard.press('Enter');
+  assert.ok(/2 itens · abrir/.test(await pA.innerText('#anota-card')), 'repetido não duplica');
+  await pA.fill('#anota-q', 'leite'); await pA.keyboard.press('Enter');
+  assert.ok(/3 itens · abrir/.test(await pA.innerText('#anota-card')), 'Enter usa o produto conhecido');
+  await pA.reload();
+  assert.ok(/3 itens · abrir/.test(await pA.innerText('#anota-card')), 'persiste');
+  await pA.click('#anota-abrir');
+  const vA = await pA.innerText('#view');
+  assert.ok(/Falta pegar \(3\)/.test(vA) && /pilha/.test(vA) && /CAFE TORRADO 500G/.test(vA) && /LEITE INTEGRAL 1L/.test(vA), vA);
+  await pA.goto(base + '?anotar=1');
+  assert.strictEqual(await pA.evaluate(() => document.activeElement && document.activeElement.id), 'anota-q', 'atalho do ícone foca o campo');
+  const man = JSON.parse(require('fs').readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
+  assert.ok(man.shortcuts && /anotar=1/.test(man.shortcuts[0].url));
+  await ctxA.close();
+  console.log('ok   anotar rápido na tela inicial');
+
   // 6i4) cartão de compartilhamento e convite
   const ctxS = await browser.newContext({ viewport: { width: 390, height: 800 } });
   await ctxS.addInitScript(s => {

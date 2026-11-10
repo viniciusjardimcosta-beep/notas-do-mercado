@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.12.0';
+  const VERSION = '0.13.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -370,6 +370,61 @@
       h('div', { style: 'margin-top:8px' }, h('button', { class: 'sm', text: 'Compartilhar imagem', onclick: shareCard })));
   }
 
+  // Anotar rápido na tela inicial: campo com sugestões dos produtos já comprados; o que não existe entra como item novo.
+  function anotarCard() {
+    const card = h('div', { class: 'card', id: 'anota-card' });
+    const contar = function () { return S.lista.filter(function (i) { return !i.feito; }).length; };
+    const input = h('input', { type: 'text', id: 'anota-q', placeholder: 'Anotar: o que está faltando?', 'aria-label': 'Anotar item na lista de compras', autocomplete: 'off', enterkeyhint: 'done' });
+    const sug = h('div', { id: 'anota-sug' });
+    const cab = h('div', { class: 'flex', style: 'justify-content:space-between;align-items:center' });
+    const abrir = function () { tab = 'buys'; comprasModo = 'lista'; render(); };
+    const topo = function () {
+      const n = contar();
+      cab.replaceChildren(h('strong', { text: 'Lista de compras' }),
+        h('button', { class: 'sm', id: 'anota-abrir', text: n ? n + (n === 1 ? ' item · abrir' : ' itens · abrir') : 'Abrir lista', onclick: abrir }));
+    };
+    const jaTem = function (key, nome) {
+      const f = String(nome).toLowerCase();
+      return S.lista.some(function (i) { return key ? i.key === key : (!i.key && String(i.nome).toLowerCase() === f); });
+    };
+    const limpa = function () { input.value = ''; sug.replaceChildren(); topo(); input.focus(); };
+    const addConhecido = function (c) {
+      if (jaTem(c.key)) { toast('Já está na lista: ' + c.nome); limpa(); return; }
+      S.lista.push({ id: novoId(), key: c.key, nome: c.nome, qtd: Core.qtdSugerida(c.ultima), preco: null, feito: false });
+      save(); toast('Anotado: ' + c.nome); limpa();
+    };
+    const addNovo = function (nome) {
+      nome = nome.trim().replace(/\s+/g, ' ').slice(0, 80); if (!nome) return;
+      if (jaTem(null, nome)) { toast('Já está na lista: ' + nome); limpa(); return; }
+      S.lista.push({ id: novoId(), key: null, nome: nome, qtd: 1, preco: null, feito: false });
+      save(); toast('Anotado: ' + nome); limpa();
+    };
+    const desenha = function () {
+      const q = input.value.trim();
+      sug.replaceChildren();
+      if (!q) return;
+      Core.catalogo(S.purchases, q, 4).forEach(function (c) {
+        sug.append(h('div', { class: 'li' },
+          h('div', { class: 'n' }, c.nome, h('div', { class: 'mute', text: 'Último preço ' + brl(c.ultima.vlUnit) })),
+          h('button', { class: 'sm', text: 'Anotar', 'aria-label': 'Anotar ' + c.nome, onclick: function () { addConhecido(c); } })));
+      });
+      sug.append(h('div', { class: 'li' },
+        h('div', { class: 'n' }, 'Outro: “' + q + '”'),
+        h('button', { class: 'sm primary', id: 'anota-novo', text: 'Anotar como novo', onclick: function () { addNovo(q); } })));
+    };
+    input.addEventListener('input', desenha);
+    input.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const q = input.value.trim(); if (!q) return;
+      const c = Core.catalogo(S.purchases, q, 1)[0];
+      if (c) addConhecido(c); else addNovo(q);
+    });
+    topo();
+    card.append(cab, input, sug);
+    return card;
+  }
+
   function viewHome() {
     if (!S.seen && !S.purchases.length) {
       view.append(h('div', { class: 'card' },
@@ -414,6 +469,7 @@
           h('button', { class: 'primary', text: 'Fazer backup', onclick: function () { exportBackup().then(function () { render(); }); } }),
           h('button', { text: 'Lembrar depois', onclick: function () { S.backupSnooze = new Date(Date.now() + 7 * DIA).toISOString(); save(); render(); } }))));
     }
+    view.append(anotarCard());
     const months = Core.monthlyTotals(S.purchases);
     const last = months[months.length - 1];
     const card1 = h('div', { class: 'card' },
@@ -1188,7 +1244,11 @@
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
   try { if (new URLSearchParams(location.search).has('exemplo')) { history.replaceState(null, '', location.pathname); enterDemo(); } } catch (e) { /* ignora */ }
+  // Atalho do ícone (Android): "Anotar na lista" abre a tela inicial com o campo de anotar em foco.
+  let _anotar = false;
+  try { if (new URLSearchParams(location.search).has('anotar')) { _anotar = true; history.replaceState(null, '', location.pathname); } } catch (e) { /* ignora */ }
   render();
+  if (_anotar) { const f = document.getElementById('anota-q'); if (f) f.focus(); }
 
   // Quando o app recebe um endereço pelo menu "Compartilhar" do celular
   (function fromShare() {

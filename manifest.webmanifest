@@ -8,6 +8,7 @@
   "theme_color": "#1f6f50",
   "lang": "pt-BR",
   "share_target": { "action": "./index.html", "method": "GET", "params": { "title": "title", "text": "text", "url": "url" } },
+  "shortcuts": [{ "name": "Anotar na lista", "short_name": "Anotar", "url": "./index.html?anotar=1", "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }] }],
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
