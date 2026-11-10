@@ -9,12 +9,12 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.11.0';
+  const VERSION = '0.12.0';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
   let S = (function () {
-    try { return Object.assign({}, defaults, JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, defaults); }
+    try { return Object.assign({}, JSON.parse(JSON.stringify(defaults)), JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, JSON.parse(JSON.stringify(defaults))); }
   })();
   // Modo exemplo: S passa a ser um conjunto fictício só na memória e save() não grava nada.
   // As notas reais ficam guardadas em REAL, intactas, até a pessoa sair do exemplo.
@@ -156,6 +156,23 @@
     toastTimer = setTimeout(function () { t.remove(); }, 8000);
   }
 
+  // Migração (v0.12): a lista antiga era só uma seleção de produtos (listaSel). Vira itens da lista nova.
+  (function migrarLista() {
+    if (!Array.isArray(S.lista)) S.lista = [];
+    const chaves = Object.keys(S.listaSel || {});
+    if (!chaves.length) return;
+    if (!S.lista.length) {
+      const porKey = {};
+      Core.catalogo(S.purchases, '').forEach(function (c) { porKey[c.key] = c; });
+      chaves.forEach(function (k) {
+        const c = porKey[k]; if (!c) return;
+        S.lista.push({ id: novoId(), key: k, nome: c.nome, qtd: Core.qtdSugerida(c.ultima), preco: null, feito: false });
+      });
+    }
+    S.listaSel = {}; save();
+  })();
+  function novoId() { return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
   // ---------- estado de tela ----------
   let tab = 'home';
   let pending = null; // nota lida aguardando confirmação
@@ -203,12 +220,20 @@
       purchases.push({ id: 'exemplo-' + i, date: isoLocal(d), store: { name: 'SUPERMERCADO CENTRAL', cnpj: '11222333000181' },
         total: +items.reduce(function (t, x) { return t + x.vlTotal; }, 0).toFixed(2), items: items });
     }
-    return Object.assign({}, defaults, { purchases: purchases, meta: 900, seen: true, lastBackup: new Date().toISOString() });
+    return Object.assign({}, JSON.parse(JSON.stringify(defaults)), { purchases: purchases, meta: 900, seen: true, lastBackup: new Date().toISOString() });
+  }
+  function preencherListaDemo() {
+    const nomes = ['LEITE', 'CAFE', 'ARROZ', 'BANANA'];
+    nomes.forEach(function (n, k) {
+      const c = Core.catalogo(S.purchases, n, 1)[0]; if (!c) return;
+      S.lista.push({ id: novoId(), key: c.key, nome: c.nome, qtd: Core.qtdSugerida(c.ultima), preco: null, feito: k === 0 });
+    });
+    S.lista.push({ id: novoId(), key: null, nome: 'Pão de forma', qtd: 1, preco: 8.5, feito: false });
   }
   function resetTela() { editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
   function enterDemo() {
     if (DEMO) return;
-    REAL = S; S = buildDemo(); DEMO = true; tab = 'home'; resetTela(); render();
+    REAL = S; S = buildDemo(); DEMO = true; preencherListaDemo(); tab = 'home'; resetTela(); render();
   }
   function exitDemo(destino) {
     if (!DEMO) return;
@@ -661,22 +686,31 @@
   // ---------- Lista de compras ----------
   let comprasModo = 'notas'; // 'notas' | 'lista'
   let comprasLimite = 20;    // quantas notas a aba Notas desenha; "Ver mais" aumenta
+  let listaBusca = '';       // texto da busca para adicionar item
+  let listaAbrir = false;    // painel "Adicionar item" aberto
+  const fmtQtd = function (q) { return String(Math.round(q * 1000) / 1000).replace('.', ','); };
   function viewList() {
-    const L = Core.shoppingList(S.purchases, new Date(), S.listaFora);
-    const nFora = Object.keys(S.listaFora).length;
-    view.append(h('div', { class: 'mute', text: 'Produtos que você já comprou em datas diferentes, com o último valor pago. Marque o que vai comprar e veja a estimativa.' }));
-    if (!L.length) {
-      view.append(h('div', { class: 'card', text: 'Ainda não há produtos comprados em 2 datas diferentes. Depois de mais algumas notas, a lista aparece aqui.' }));
-      if (nFora) view.append(h('button', { class: 'sm', text: 'Mostrar itens escondidos (' + nFora + ')', onclick: function () { S.listaFora = {}; save(); render(); } }));
-      return;
-    }
-    const resumo = h('div', { class: 'card' });
-    const escolhidos = function () { return L.filter(function (x) { return S.listaSel[x.key]; }); };
-    const textoLista = function (sel, total) {
-      return 'Lista de compras (Caderninho do Mercado)\n' + sel.map(function (x) { return '• ' + x.nome + ' (última vez ' + brl(x.ultimoTotal) + ')'; }).join('\n') + '\nEstimativa: ' + brl(total);
+    const cat = Core.catalogo(S.purchases, '');
+    const porKey = {}, precos = {};
+    cat.forEach(function (c) { porKey[c.key] = c; precos[c.key] = c.ultima.vlUnit; });
+    const refresca = function () { const y = window.scrollY; save(); render(); window.scrollTo(0, y); };
+    const precoDe = function (it) { return it.key && precos[it.key] > 0 ? precos[it.key] : (it.preco > 0 ? it.preco : null); };
+    const passoDe = function (it) { return it.key && porKey[it.key] ? Core.passoQtd(porKey[it.key].ultima.un) : 1; };
+    const pendentes = S.lista.filter(function (i) { return !i.feito; });
+    const feitos = S.lista.filter(function (i) { return i.feito; });
+    const est = Core.estimarLista(S.lista, precos);
+
+    view.append(h('div', { class: 'mute', text: 'Monte a lista com o que você já comprou ou com itens novos. No mercado, marque o que for pegando.' }));
+
+    // resumo
+    const texto = function () {
+      return 'Lista de compras (Caderninho do Mercado)\n' + pendentes.map(function (i) {
+        const p = precoDe(i);
+        return '• ' + fmtQtd(i.qtd) + (i.key && porKey[i.key] && Core.passoQtd(porKey[i.key].ultima.un) === 0.5 ? ' kg ' : ' × ') + i.nome + (p ? ' (≈ ' + brl(p * i.qtd) + ')' : '');
+      }).join('\n') + '\nEstimativa: ' + brl(est.pendente);
     };
-    const enviar = async function (sel, total) {
-      const text = textoLista(sel, total);
+    const enviar = async function () {
+      const text = texto();
       if (navigator.share) {
         try { await navigator.share({ title: 'Lista de compras', text: text }); return; }
         catch (e) { if (e && e.name === 'AbortError') return; }
@@ -684,42 +718,121 @@
       try { await navigator.clipboard.writeText(text); toast('Lista copiada. Cole no WhatsApp ou onde quiser.'); }
       catch (e) { alert(text); }
     };
-    const atualizarResumo = function () {
-      const sel = escolhidos();
-      const total = Math.round(sel.reduce(function (s, x) { return s + (x.ultimoTotal || 0); }, 0) * 100) / 100;
-      resumo.replaceChildren(
-        h('div', { class: 'mute', text: 'Sua lista' }),
-        h('div', { class: 'big', text: sel.length ? brl(total) : '—' }),
-        h('div', { class: 'mute', text: sel.length ? sel.length + (sel.length === 1 ? ' item' : ' itens') + ' · estimativa pelo que você pagou da última vez' : 'Marque os itens que vai comprar para ver a estimativa.' }),
-        h('div', { class: 'flex', style: 'margin-top:10px' },
-          h('button', { class: 'primary', text: 'Enviar lista', disabled: sel.length ? false : true, onclick: function () { enviar(sel, total); } }),
-          h('button', { text: 'Limpar', disabled: sel.length ? false : true, onclick: function () { S.listaSel = {}; save(); render(); } })));
-    };
-    const acabando = L.filter(function (x) { return x.acabando; });
-    const outros = L.filter(function (x) { return !x.acabando; });
+    const resumo = h('div', { class: 'card', id: 'lista-resumo' },
+      h('div', { class: 'mute', text: 'Gasto previsto' }),
+      h('div', { class: 'big', text: S.lista.length && est.total > 0 ? brl(est.total) : '—' }),
+      h('div', { class: 'mute', text: !S.lista.length ? 'Adicione itens para ver a estimativa.'
+        : S.lista.length + (S.lista.length === 1 ? ' item' : ' itens') + ' · pelo último preço que você pagou' }));
+    if (S.lista.length) {
+      resumo.append(h('div', { class: 'mute', text: 'Falta pegar ' + brl(est.pendente) + ' · No carrinho ' + brl(est.carrinho) }));
+      if (est.semPreco) resumo.append(h('div', { class: 'warn', text: est.semPreco + (est.semPreco === 1 ? ' item sem preço ficou' : ' itens sem preço ficaram') + ' fora da conta. Informe o preço para entrar.' }));
+      resumo.append(h('div', { class: 'flex', style: 'margin-top:10px' },
+        h('button', { class: 'primary', text: 'Enviar lista', disabled: pendentes.length ? false : true, onclick: enviar }),
+        h('button', { text: 'Tirar marcados', disabled: feitos.length ? false : true, onclick: function () { S.lista = S.lista.filter(function (i) { return !i.feito; }); refresca(); } }),
+        h('button', { text: 'Nova lista', onclick: function () { if (confirm('Apagar a lista inteira?')) { S.lista = []; refresca(); } } })));
+    }
     view.append(resumo);
-    if (acabando.length) view.append(h('div', { class: 'flex' }, h('button', { class: 'sm', text: 'Marcar os que provavelmente estão acabando', onclick: function () {
-      acabando.forEach(function (x) { S.listaSel[x.key] = true; }); save(); render();
-    } })));
-    const secao = function (titulo, dica, itens) {
-      if (!itens.length) return;
-      const card = h('div', { class: 'card' }, h('h2', { text: titulo + ' (' + itens.length + ')' }), h('div', { class: 'mute', text: dica }));
-      itens.slice(0, 40).forEach(function (x) {
-        const cb = h('input', { type: 'checkbox', checked: !!S.listaSel[x.key], 'aria-label': 'Incluir ' + x.nome + ' na lista' });
-        cb.addEventListener('change', function () { if (cb.checked) S.listaSel[x.key] = true; else delete S.listaSel[x.key]; save(); atualizarResumo(); });
-        card.append(h('div', { class: 'lista-item' },
-          h('label', { class: 'lista-row' }, cb,
-            h('div', { class: 'n' }, x.nome,
-              h('div', { class: 'mute', text: 'Última vez ' + brl(x.ultimoTotal) + ' em ' + dataBR(x.ultimaData).slice(0, 5) + ' (há ' + x.diasDesde + (x.diasDesde === 1 ? ' dia' : ' dias') + ')' + (x.loja ? ' · ' + x.loja : '') }),
-              h('div', { class: 'mute', text: 'Você costuma comprar a cada ' + x.intervalo + (x.intervalo === 1 ? ' dia' : ' dias') + ', em ' + x.nCompras + ' compras.' }))),
-          h('button', { class: 'sm', text: 'Esconder', 'aria-label': 'Esconder ' + x.nome + ' da lista', onclick: function () { S.listaFora[x.key] = true; delete S.listaSel[x.key]; save(); render(); } })));
+
+    // adicionar item
+    const jaTem = function (key) { return S.lista.some(function (i) { return i.key === key; }); };
+    const adicionarConhecido = function (c) {
+      if (jaTem(c.key)) return;
+      S.lista.push({ id: novoId(), key: c.key, nome: c.nome, qtd: Core.qtdSugerida(c.ultima), preco: null, feito: false });
+      listaAbrir = true; listaBusca = ''; refresca();
+    };
+    const busca = h('input', { type: 'search', id: 'lista-busca', placeholder: 'Buscar produto ou digitar um novo', 'aria-label': 'Buscar produto para a lista', value: listaBusca, autocomplete: 'off' });
+    const preco = h('input', { type: 'text', id: 'lista-preco', inputmode: 'decimal', placeholder: 'Preço (opcional)', 'aria-label': 'Preço do item novo, opcional' });
+    const resultados = h('div', { id: 'lista-resultados' });
+    const desenhaResultados = function () {
+      listaBusca = busca.value;
+      const q = busca.value.trim();
+      const achados = Core.catalogo(S.purchases, q, 8);
+      resultados.replaceChildren();
+      if (!q && achados.length) resultados.append(h('div', { class: 'mute', text: 'Os que você mais compra:' }));
+      achados.forEach(function (c) {
+        const ja = jaTem(c.key);
+        resultados.append(h('div', { class: 'li' },
+          h('div', { class: 'n' }, c.nome, h('div', { class: 'mute', text: 'Último preço ' + brl(c.ultima.vlUnit) + ' · ' + c.nCompras + (c.nCompras === 1 ? ' compra' : ' compras') })),
+          h('button', { class: 'sm', text: ja ? 'Na lista' : 'Adicionar', disabled: ja, 'aria-label': (ja ? 'Já na lista: ' : 'Adicionar à lista: ') + c.nome, onclick: function () { adicionarConhecido(c); } })));
+      });
+      if (q) {
+        const novo = function () {
+          const p = preco.value.trim() ? Core.parseMoney(preco.value) : null;
+          if (preco.value.trim() && p == null) { toast('Preço inválido. Use algo como 4,50.'); return; }
+          S.lista.push({ id: novoId(), key: null, nome: q, qtd: 1, preco: p, feito: false });
+          listaAbrir = true; listaBusca = ''; refresca();
+        };
+        resultados.append(h('div', { class: 'li', style: 'flex-wrap:wrap' },
+          h('div', { class: 'n' }, 'Outro: “' + q + '”', h('div', { class: 'mute', text: 'Item que você ainda não comprou. Você pode informar o preço.' })),
+          preco,
+          h('button', { class: 'sm primary', text: 'Adicionar como novo', onclick: novo })));
+      } else if (!achados.length) resultados.append(h('div', { class: 'mute', text: 'Digite o nome de um item para adicionar.' }));
+    };
+    busca.addEventListener('input', desenhaResultados);
+    busca.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); const b = resultados.querySelector('button.primary'); if (b) b.click(); } });
+    const painel = h('details', { class: 'card', id: 'lista-add', open: !S.lista.length || listaAbrir },
+      h('summary', null, h('span', { text: 'Adicionar item' })), busca, resultados);
+    painel.addEventListener('toggle', function () { listaAbrir = painel.open; });
+    view.append(painel);
+    desenhaResultados();
+
+    // itens
+    const linha = function (it) {
+      const p = precoDe(it), passo = passoDe(it);
+      const cb = h('input', { type: 'checkbox', checked: !!it.feito, 'aria-label': (it.feito ? 'Voltar para a lista: ' : 'Peguei: ') + it.nome });
+      cb.addEventListener('change', function () { it.feito = cb.checked; refresca(); });
+      const info = [];
+      if (p) info.push(fmtQtd(it.qtd) + ' × ' + brl(p) + ' = ' + brl(p * it.qtd));
+      const c = it.key ? porKey[it.key] : null;
+      if (c) info.push('último preço em ' + dataBR(c.ultima.data).slice(0, 5));
+      const meio = h('div', { class: 'n' }, h('div', { class: 'nm', text: it.nome }), info.length ? h('div', { class: 'mute', text: info.join(' · ') }) : null);
+      if (!it.key) {
+        const campo = h('input', { type: 'text', inputmode: 'decimal', class: 'preco-item', placeholder: 'Preço', value: it.preco ? String(it.preco).replace('.', ',') : '', 'aria-label': 'Preço de ' + it.nome });
+        campo.addEventListener('change', function () {
+          const v = campo.value.trim() ? Core.parseMoney(campo.value) : null;
+          if (campo.value.trim() && v == null) { toast('Preço inválido. Use algo como 4,50.'); return; }
+          it.preco = v; refresca();
+        });
+        meio.append(campo);
+      }
+      const q = h('div', { class: 'qtd' },
+        h('button', { class: 'sm', text: '−', 'aria-label': 'Diminuir quantidade de ' + it.nome, onclick: function () { it.qtd = Math.max(passo, Math.round((it.qtd - passo) * 1000) / 1000); refresca(); } }),
+        h('span', { text: fmtQtd(it.qtd), 'aria-label': 'Quantidade' }),
+        h('button', { class: 'sm', text: '+', 'aria-label': 'Aumentar quantidade de ' + it.nome, onclick: function () { it.qtd = Math.round((it.qtd + passo) * 1000) / 1000; refresca(); } }));
+      if (!it.feito) meio.append(q);
+      return h('div', { class: 'li' + (it.feito ? ' feito' : '') }, cb, meio,
+        h('button', { class: 'sm', text: '✕', 'aria-label': 'Remover ' + it.nome + ' da lista', onclick: function () { S.lista = S.lista.filter(function (x) { return x !== it; }); refresca(); } }));
+    };
+    if (pendentes.length) {
+      const card = h('div', { class: 'card', id: 'lista-falta' }, h('h2', { text: 'Falta pegar (' + pendentes.length + ')' }));
+      pendentes.forEach(function (it) { card.append(linha(it)); });
+      view.append(card);
+    } else if (S.lista.length) view.append(h('div', { class: 'card', text: 'Tudo no carrinho. Boa compra!' }));
+    if (feitos.length) {
+      const card = h('div', { class: 'card', id: 'lista-carrinho' }, h('h2', { text: 'No carrinho (' + feitos.length + ')' }));
+      feitos.forEach(function (it) { card.append(linha(it)); });
+      view.append(card);
+    }
+
+    // sugestões: o que provavelmente está acabando e ainda não está na lista
+    const sug = Core.shoppingList(S.purchases, new Date(), S.listaFora).filter(function (x) { return x.acabando && !jaTem(x.key); });
+    const nFora = Object.keys(S.listaFora).length;
+    if (sug.length) {
+      const card = h('div', { class: 'card', id: 'lista-sugestoes' }, h('h2', { text: 'Provavelmente acabando (' + sug.length + ')' }),
+        h('div', { class: 'mute', text: 'Já passou boa parte do intervalo entre as suas compras desse produto.' }),
+        h('div', { class: 'flex', style: 'margin:8px 0' }, h('button', { class: 'sm', text: 'Adicionar todos', onclick: function () {
+          sug.forEach(function (x) { const c = porKey[x.key]; if (c) S.lista.push({ id: novoId(), key: x.key, nome: x.nome, qtd: Core.qtdSugerida(c.ultima), preco: null, feito: false }); });
+          refresca();
+        } })));
+      sug.slice(0, 30).forEach(function (x) {
+        card.append(h('div', { class: 'li' },
+          h('div', { class: 'n' }, x.nome, h('div', { class: 'mute', text: 'Última vez em ' + dataBR(x.ultimaData).slice(0, 5) + ' (há ' + x.diasDesde + (x.diasDesde === 1 ? ' dia' : ' dias') + ') · costuma comprar a cada ' + x.intervalo + (x.intervalo === 1 ? ' dia' : ' dias') })),
+          h('button', { class: 'sm', text: 'Adicionar', 'aria-label': 'Adicionar à lista: ' + x.nome, onclick: function () { const c = porKey[x.key]; if (c) adicionarConhecido(c); } }),
+          h('button', { class: 'sm', text: 'Esconder', 'aria-label': 'Esconder ' + x.nome + ' das sugestões', onclick: function () { S.listaFora[x.key] = true; refresca(); } })));
       });
       view.append(card);
-    };
-    secao('Provavelmente acabando', 'Já passou boa parte do intervalo médio entre as suas compras desse produto.', acabando);
-    secao('Outros que você compra', 'Comprados há pouco tempo, em relação ao seu ritmo.', outros);
-    if (nFora) view.append(h('button', { class: 'sm', text: 'Mostrar itens escondidos (' + nFora + ')', onclick: function () { S.listaFora = {}; save(); render(); } }));
-    atualizarResumo();
+    }
+    if (nFora) view.append(h('button', { class: 'sm', text: 'Mostrar sugestões escondidas (' + nFora + ')', onclick: function () { S.listaFora = {}; refresca(); } }));
   }
 
   function viewBuys() {
@@ -1058,7 +1171,7 @@
     imp.addEventListener('change', function () {
       const f = imp.files[0]; if (!f) return;
       f.text().then(function (t) {
-        try { const d = JSON.parse(t); if (!Array.isArray(d.purchases)) throw 0; S = Object.assign({}, defaults, d); save(); render(); alert('Dados importados.'); }
+        try { const d = JSON.parse(t); if (!Array.isArray(d.purchases)) throw 0; S = Object.assign({}, JSON.parse(JSON.stringify(defaults)), d); save(); render(); alert('Dados importados.'); }
         catch (e) { alert('Arquivo inválido.'); }
       });
     });
@@ -1069,7 +1182,7 @@
         h('button', { class: 'primary', text: 'Fazer backup', onclick: function () { exportBackup().then(function () { render(); }); } }),
         h('button', { text: 'Importar', onclick: function () { imp.click(); } }), imp),
       h('div', { style: 'margin-top:10px' }, h('button', { class: 'danger', text: 'Apagar tudo', onclick: function () {
-        if (confirm('Apagar todas as notas e ajustes deste aparelho?')) { S = Object.assign({}, defaults); save(); render(); }
+        if (confirm('Apagar todas as notas e ajustes deste aparelho?')) { S = Object.assign({}, JSON.parse(JSON.stringify(defaults))); save(); render(); }
       } }))));
   }
 

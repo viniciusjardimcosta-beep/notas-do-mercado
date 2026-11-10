@@ -159,3 +159,12 @@ tests/     unit.test.js (sem navegador) e browser.test.js (precisa de playwright
 - **Cache do agrupamento de produtos:** a chave é uma assinatura do conteúdo das notas e dos ajustes (`assinatura` em `core.js`), então não depende de avisar "mudou". Há testes que comparam o resultado com um módulo sem cache depois de cada tipo de alteração.
 - **Aba Compras:** mostra as 20 notas mais recentes ("Ver mais notas") e monta os itens de cada nota só ao abrir.
 - Medido no Chromium com CPU 4x mais lenta, 1 nota a cada 3,5 dias: com 150 notas, Compras 2,7 s → 0,05 s e Resumo 0,8 s → 0,2 s.
+
+## Lista de compras (v0.12)
+
+- A lista agora é guardada no aparelho (`lista` em `notas.v1`, entra no backup): itens com produto conhecido (`key`), quantidade, preço manual opcional e marca de "no carrinho".
+- Qualquer produto já comprado pode entrar (busca ou "mais comprados"); o que nunca foi comprado entra como item novo, com preço opcional.
+- Estimativa: quantidade × último preço registrado; item novo usa o preço digitado; item sem preço fica fora da conta e é avisado. Separa "Falta pegar" e "No carrinho".
+- Marcar no mercado move o item para "No carrinho". "Enviar lista" manda só o que falta pegar.
+- "Provavelmente acabando" virou sugestão (adicionar um a um ou todos). A seleção antiga (`listaSel`) é migrada para itens.
+- Teste em celular real ainda pendente (só Playwright).

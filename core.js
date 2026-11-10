@@ -483,15 +483,15 @@
   // Busca por produto ("Quanto paguei?"): todas as palavras digitadas precisam aparecer no nome
   // (sem acento, sem maiúsculas). Devolve a última compra e a de menor preço (por kg/litro quando
   // o tamanho é conhecido, senão por unidade). Em empate de preço, vale a mais recente.
-  function lookupProducts(purchases, query, limit) {
+  function lookupProducts(purchases, query, limit, todos) {
     const toks = foldText(query).split(/[^a-z0-9]+/).filter(Boolean);
-    if (!toks.length) return [];
+    if (!toks.length && !todos) return [];
     const out = [];
     buildProducts(purchases).forEach(function (pr) {
       const hay = foldText([pr.nome].concat(pr.nomes).join(' '));
       if (!toks.every(function (t) { return hay.indexOf(t) >= 0; })) return;
       const lista = pr.compras.filter(function (c) { return c.vlUnit > 0 && isFinite(c.vlUnit); }).map(function (c) {
-        return { data: c.data, loja: c.loja, vlUnit: c.vlUnit, un: c.un, up: unitPrice(pr, c) };
+        return { data: c.data, loja: c.loja, vlUnit: c.vlUnit, un: c.un, qtd: c.qtd, up: unitPrice(pr, c) };
       });
       if (!lista.length) return;
       const ultima = lista[lista.length - 1];
@@ -506,6 +506,37 @@
       return da === db ? a.nome.localeCompare(b.nome) : (da < db ? 1 : -1);
     });
     return out.slice(0, limit || 8);
+  }
+
+  // Todos os produtos já comprados (para a pessoa escolher o que pôr na lista), com o último preço.
+  // Com texto, filtra como a busca; sem texto, devolve tudo (mais comprados primeiro).
+  function catalogo(purchases, query, limit) {
+    return lookupProducts(purchases, query, limit || 1000, true);
+  }
+
+  // Quantidade inicial sugerida: o que a pessoa levou da última vez (inteiro para unidade, até 3 casas para kg).
+  function qtdSugerida(ultima) {
+    const un = String((ultima && ultima.un) || '').toUpperCase();
+    const q = ultima && ultima.qtd;
+    if (un === 'KG' || un === 'L' || un === 'LT') return q > 0 && isFinite(q) ? Math.round(q * 1000) / 1000 : 1;
+    return q >= 1 && isFinite(q) ? Math.round(q) : 1;
+  }
+  function passoQtd(un) { un = String(un || '').toUpperCase(); return (un === 'KG' || un === 'L' || un === 'LT') ? 0.5 : 1; }
+
+  // Estimativa da lista. itens: {id, key, qtd, preco, feito}; precos: { key: valor unitário do último registro }.
+  // Item conhecido usa o último preço registrado; item manual usa o preço digitado (opcional).
+  // Itens sem nenhum preço ficam de fora do total e são contados em semPreco.
+  function estimarLista(itens, precos) {
+    precos = precos || {};
+    let pendente = 0, carrinho = 0, semPreco = 0;
+    (itens || []).forEach(function (it) {
+      const p = it.key && precos[it.key] > 0 ? precos[it.key] : (it.preco > 0 ? it.preco : null);
+      const q = it.qtd > 0 ? it.qtd : 1;
+      if (p == null) { semPreco++; return; }
+      if (it.feito) carrinho += p * q; else pendente += p * q;
+    });
+    const r = function (v) { return Math.round(v * 100) / 100; };
+    return { pendente: r(pendente), carrinho: r(carrinho), total: r(pendente + carrinho), semPreco: semPreco };
   }
 
   // Valor digitado pela pessoa: aceita "900", "900,50", "1.200,00", "R$ 1200".
@@ -540,7 +571,7 @@
   }
 
   return {
-    windowPurchases: windowPurchases, JANELA_MESES: JANELA_MESES, parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
+    windowPurchases: windowPurchases, JANELA_MESES: JANELA_MESES, parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, catalogo: catalogo, qtdSugerida: qtdSugerida, passoQtd: passoQtd, estimarLista: estimarLista, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
     buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,
