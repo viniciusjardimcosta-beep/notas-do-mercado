@@ -190,3 +190,8 @@ Para ligar (no painel do Cloudflare):
 3. Para ler: crie um API token só com **Account Analytics: Read** e rode `CF_ACCOUNT_ID=... CF_API_TOKEN=... node ler-metricas.js 30`.
 
 A política de privacidade foi atualizada com uma frase sobre isso.
+
+## v0.15
+
+- Lembrete de backup a cada 14 dias (antes 30). O primeiro já aparece a partir da 3ª nota.
+- "Para onde foi o dinheiro" passa a usar só os últimos 12 meses, como inflação e alertas. Quando há notas mais antigas, o título mostra "(últimos 12 meses)".

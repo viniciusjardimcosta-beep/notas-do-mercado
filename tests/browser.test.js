@@ -353,6 +353,17 @@ function nota(itens, data, loja) {
   await ctxM.close();
   console.log('ok   meta mensal');
 
+  // 6h2) lembrete de backup a cada 14 dias
+  for (const [dias, deve] of [[20, true], [10, false]]) {
+    const cB = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const ult = new Date(Date.now() - dias * 864e5).toISOString();
+    await cB.addInitScript(s => { window.NOTAS_CONFIG = { proxy: '' }; if (!localStorage.getItem('notas.v1')) localStorage.setItem('notas.v1', JSON.stringify(s)); }, { seen: true, lastBackup: ult, purchases: [1, 2, 3].map(i => ({ id: 'b' + i, date: '2026-10-0' + i, store: { name: 'M', cnpj: '1' }, total: 5, items: [{ nome: 'LEITE INTEGRAL 1L', codigo: '2', qtd: 1, un: 'UN', vlUnit: 5, vlTotal: 5 }] })) });
+    const pB = await cB.newPage(); await pB.goto(base);
+    assert.strictEqual(/Faça um backup/.test(await pB.innerText('#view')), deve, 'backup há ' + dias + ' dias');
+    await cB.close();
+  }
+  console.log('ok   lembrete de backup a cada 14 dias');
+
   // 6i3) embalagem menor + lista de compras (data fixa em 07/11/2026)
   const ctxL = await browser.newContext({ viewport: { width: 390, height: 800 } });
   const mkIt = (nome, cod, v) => ({ nome, codigo: cod, qtd: 1, un: 'UN', vlUnit: v, vlTotal: v });

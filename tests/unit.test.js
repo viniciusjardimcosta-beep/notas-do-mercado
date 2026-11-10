@@ -510,4 +510,11 @@ t('lista: estimativa usa último preço, preço manual e ignora item sem preço'
   assert.deepStrictEqual(r, { pendente: 11, carrinho: 8.5, total: 19.5, semPreco: 1 });
   assert.deepStrictEqual(C.estimarLista([], {}), { pendente: 0, carrinho: 0, total: 0, semPreco: 0 });
 });
+t('resumo por categoria: usa só os últimos 12 meses, como o resto do app', () => {
+  const mk = (id, d, v) => ({ id, date: d, store: { name: 'M', cnpj: '1' }, total: v, items: [{ nome: 'LEITE INTEGRAL 1L', codigo: '2', qtd: 1, un: 'UN', vlUnit: v, vlTotal: v }] });
+  const P = [mk('a', '2024-01-10', 100), mk('b', '2026-10-10', 7), mk('c', '2026-11-05', 3)];
+  const tot = C.categoryTotals(P, {}, {}).reduce((s, c) => s + c.total, 0);
+  assert.strictEqual(Math.round(tot * 100) / 100, 10, 'a nota de 2024 fica fora');
+  assert.strictEqual(C.categoryTotals(P.slice(1), {}, {}).reduce((s, c) => s + c.total, 0), 10);
+});
 console.log('\n' + n + ' testes passaram' + (process.exitCode ? ' (com falhas)' : ''));

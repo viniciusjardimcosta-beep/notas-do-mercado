@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.14.2';
+  const VERSION = '0.15.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -37,7 +37,7 @@
     const agora = Date.now();
     const last = S.lastBackup ? Date.parse(S.lastBackup) : 0;
     const snooze = S.backupSnooze ? Date.parse(S.backupSnooze) : 0;
-    return agora - last > 30 * DIA && agora > snooze;
+    return agora - last > 14 * DIA && agora > snooze;
   }
   // Abre o menu Compartilhar do celular (Drive, WhatsApp, e-mail…). Sem suporte, baixa o arquivo.
   async function exportBackup() {
@@ -525,7 +525,8 @@
     // categorias
     const cats = Core.categoryTotals(S.purchases, S.overrides, S.cutMap);
     const max = cats.length ? cats[0].total : 1;
-    const card4 = h('div', { class: 'card' }, h('div', { class: 'mute', text: 'Para onde foi o dinheiro' }));
+    const recorte = Core.windowPurchases(S.purchases).length < S.purchases.length;
+    const card4 = h('div', { class: 'card' }, h('div', { class: 'mute', text: 'Para onde foi o dinheiro' + (recorte ? ' (últimos 12 meses)' : '') }));
     cats.forEach(function (c) {
       card4.append(h('div', { style: 'margin-top:10px' },
         h('div', { class: 'row', style: 'border:0;padding:0' }, h('div', { class: 'n' }, c.nome, c.cortavel ? h('span', { class: 'tag', text: 'cortável' }) : null), h('div', { class: 'v', text: brl(c.total) })),

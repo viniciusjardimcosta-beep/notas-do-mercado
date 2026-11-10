@@ -202,7 +202,8 @@
   function monthKey(d) { return String(d || '').slice(0, 7); }
 
   function categoryTotals(purchases, overrides, cutMap) {
-    const products = buildProducts(purchases);
+    // mesma janela de 12 meses do resto do app, para os números do Resumo baterem entre si
+    const products = buildProducts(windowPurchases(purchases));
     const totals = {};
     CATEGORIES.forEach(function (c) { totals[c.id] = { id: c.id, nome: c.nome, total: 0, itens: 0 }; });
     products.forEach(function (pr) {
