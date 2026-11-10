@@ -93,6 +93,15 @@ A câmera só funciona em `https` ou `localhost`.
 - O leitor de QR (jsQR 1.4.0, Apache-2.0, `app/jsQR.js`) agora vem junto com o app, em vez de ser baixado do cdnjs. O iPhone não tem `BarcodeDetector`, então depende dele para escanear. Teste de decodificação em `tests/browser.test.js` com imagem em `tests/fixtures/qr.png`.
 - **Confirmado em iPhone real (Safari) em 09/11/2026**, por um testador, depois da v0.10.2. Os testes automáticos usam a câmera simulada do Chromium. Android também confirmado em 09/11/2026.
 
+## Página de apresentação (`site/`, publicada em `/conheca/`)
+
+- Página estática, sem JavaScript e sem terceiros (as fontes são servidas do próprio site, subconjunto de Bricolage Grotesque e Courier Prime, licença OFL em `site/fonts/`). Use `https://caderninhodomercado.com.br/conheca/` em vídeos, bio e grupos.
+- O app continua na raiz (`/`): as notas ficam presas ao endereço, então o app **não pode mudar de lugar** sem os usuários perderem os dados.
+- As capturas de tela (`site/img/`) e o cupom do topo usam **dados fictícios**, e a página diz isso. Se mudar o visual do app, refaça as capturas.
+- `site/previa.png` (1200x630) é a imagem que aparece quando o link é colado no WhatsApp.
+- Testes: `node tests/site.test.js` (sem links externos, arquivos existem, sem estouro lateral em 360 a 1280 px, imagens e fontes carregam).
+- Afirmações da página que precisam continuar verdadeiras: "grátis" (hoje), "RS validado, outros estados em teste", "não guarda CPF", "sem cadastro". Se algo mudar (plano Pro, novos estados), atualize a página junto.
+
 ## Pendências de marca (checar antes de divulgar ou registrar)
 
 - Busca no INPI em 07/11/2026 pelo radical "caderninho": 17 processos, nenhum igual a "Caderninho do Mercado". Os arquivados, extintos e indeferidos não impedem o uso.

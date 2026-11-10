@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caderninho do Mercado: descubra o que ficou mais caro no seu mercado</title>
+<meta name="description" content="Escaneie o QR Code da nota fiscal e veja o que subiu de preço, o que encolheu e quanto você gasta. Grátis, sem cadastro, com os dados só no seu celular.">
+<link rel="canonical" href="https://caderninhodomercado.com.br/conheca/">
+<meta name="theme-color" content="#1F6F50">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Caderninho do Mercado">
+<meta property="og:title" content="Descubra o que ficou mais caro no seu mercado">
+<meta property="og:description" content="Escaneie o QR Code da nota fiscal. Grátis, sem cadastro, com os dados só no seu celular.">
+<meta property="og:url" content="https://caderninhodomercado.com.br/conheca/">
+<meta property="og:image" content="https://caderninhodomercado.com.br/conheca/previa.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cupom fiscal com a anotação: arroz subiu 7% desde março">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/titulo-800.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/texto-400.woff" as="font" type="font/woff" crossorigin>
+<style>
+@font-face{font-family:"Titulo";src:url("fonts/titulo-800.woff") format("woff");font-weight:800;font-style:normal;font-display:swap}
+@font-face{font-family:"Texto";src:url("fonts/texto-400.woff") format("woff");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Texto";src:url("fonts/texto-700.woff") format("woff");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Cupom";src:url("fonts/cupom-400.woff") format("woff");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Cupom";src:url("fonts/cupom-700.woff") format("woff");font-weight:700;font-style:normal;font-display:swap}
+
+:root{
+  --papel:#F3F5F1;
+  --tinta:#15201B;
+  --mudo:#4B5A52;
+  --verde:#1F6F50;
+  --verde-escuro:#17563E;
+  --etiqueta:#FFD93D;
+  --alta:#B8271E;
+  --linha:#D5DBD3;
+  --cupom:#FDFDFB;
+  --titulo:"Titulo","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --texto:"Texto",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Cupom","Courier New",ui-monospace,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--papel);color:var(--tinta);font:400 clamp(1.0625rem,1rem + .3vw,1.1875rem)/1.55 var(--texto)}
+img{display:block;max-width:100%;height:auto}
+a{color:inherit}
+h1,h2,h3{font-family:var(--titulo);font-weight:800;margin:0;line-height:.98;letter-spacing:-.005em;text-wrap:balance}
+p{margin:0}
+.miolo{width:100%;max-width:1120px;margin-inline:auto;padding-inline:20px}
+:focus-visible{outline:3px solid var(--tinta);outline-offset:3px}
+
+/* topo */
+.topo{padding-block:18px}
+.marca{display:inline-flex;align-items:center;gap:10px;font:800 1.6rem/1 var(--titulo);text-decoration:none}
+.marca img{width:30px;height:30px;border-radius:7px}
+
+/* botão */
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:14px 28px;border-radius:10px;background:var(--verde);color:#fff;font:700 1.15rem/1.1 var(--texto);text-decoration:none;border:0;cursor:pointer}
+.btn:hover{background:var(--verde-escuro)}
+.risco{margin-top:14px;color:var(--mudo);font-size:.98rem}
+
+/* herói */
+.heroi{display:grid;gap:44px;padding-block:clamp(28px,6vw,72px) clamp(56px,8vw,104px)}
+.heroi h1{font-size:clamp(3.1rem,10.5vw,5.6rem);max-width:13ch}
+.heroi .sub{margin-top:22px;max-width:34ch;font-size:clamp(1.15rem,1.05rem + .5vw,1.4rem);line-height:1.45}
+.heroi .acao{margin-top:30px}
+@media(min-width:900px){.heroi{grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);align-items:center;gap:56px}}
+
+/* cupom do herói */
+.cupom-caixa{justify-self:center;width:min(100%,384px);filter:drop-shadow(0 1px 0 rgba(21,32,27,.08)) drop-shadow(0 18px 28px rgba(21,32,27,.14))}
+.cupom{position:relative;background:var(--cupom);padding:24px 20px 26px;font:400 .9375rem/1.35 var(--mono);color:#1d2521}
+.cupom::before,.cupom::after{content:"";position:absolute;left:0;right:0;height:12px;background:
+  linear-gradient(135deg,var(--cupom) 50%,transparent 50%) 0 0/16px 12px repeat-x,
+  linear-gradient(225deg,var(--cupom) 50%,transparent 50%) 0 0/16px 12px repeat-x}
+.cupom::before{top:-11px;transform:scaleY(-1)}
+.cupom::after{bottom:-11px}
+.cupom .c{text-align:center}
+.cupom .c b{font-weight:700;display:block;letter-spacing:.02em}
+.cupom hr{border:0;border-top:1px dashed #9aa59e;margin:12px 0}
+.cupom .it{margin-top:9px}
+.cupom .it span{display:block}
+.cupom .it .pr{display:flex;gap:6px;padding-left:1.2ch}
+.cupom .it .pr i{flex:1;border-bottom:1px dotted #9aa59e;transform:translateY(-.35em)}
+.cupom .tot{display:flex;justify-content:space-between;font-weight:700;font-size:1.05rem}
+.cupom .it .etq{display:inline-block;margin:6px 0 2px 1.2ch;padding:4px 9px;background:var(--etiqueta);color:var(--tinta);font:700 .9rem/1.2 var(--texto);border-radius:3px;box-shadow:0 1px 0 rgba(21,32,27,.25)}
+.legenda{margin-top:30px;text-align:center;color:var(--mudo);font-size:.9rem}
+
+@media(prefers-reduced-motion:no-preference){
+  .cupom{animation:imprimir 1.7s cubic-bezier(.35,.7,.25,1) both}
+  .etq{animation:cola .4s ease-out both;animation-delay:calc(1.1s + var(--i)*.28s)}
+}
+@keyframes imprimir{from{clip-path:inset(-20px -20px 100% -20px)}to{clip-path:inset(-20px -20px -20px -20px)}}
+@keyframes cola{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* fatos */
+.fatos{border-top:2px solid var(--tinta);display:grid;gap:0;margin:0;padding:0}
+.fatos div{padding:20px 0;border-bottom:1px solid var(--linha)}
+.fatos dt{font:800 1.7rem/1 var(--titulo);margin-bottom:6px}
+.fatos dd{margin:0;color:var(--mudo)}
+@media(min-width:820px){.fatos{grid-template-columns:repeat(3,1fr);column-gap:36px}.fatos div{border-bottom:0;padding-block:24px 0}}
+
+/* blocos */
+.bloco{padding-block:clamp(56px,9vw,112px)}
+.problema h2{font-size:clamp(2.4rem,6.2vw,4.4rem);max-width:15ch}
+.problema p{margin-top:24px;max-width:46ch;font-size:clamp(1.1rem,1.02rem + .4vw,1.3rem)}
+.rec{display:grid;gap:28px;align-items:center;padding-block:clamp(36px,6vw,64px)}
+.rec h3{font-size:clamp(2.1rem,5vw,3.2rem);max-width:17ch}
+.rec p{margin-top:16px;max-width:42ch}
+.rec .ressalva{margin-top:12px;color:var(--mudo);font-size:.95rem}
+.tela{margin:0;justify-self:start;width:min(100%,440px)}
+.tela .quadro{background:#fff;border:1px solid var(--linha);border-radius:16px;padding:14px}
+.tela img{border-radius:8px;width:100%}
+.tela figcaption{margin-top:10px;color:var(--mudo);font-size:.875rem}
+@media(min-width:820px){
+  .rec{grid-template-columns:1fr 1fr;gap:72px}
+  .rec .tela{justify-self:end}
+  .rec.inv .tela{order:-1;justify-self:start}
+}
+
+/* como funciona */
+.passos{display:grid;gap:36px;align-items:center}
+.passos h2{font-size:clamp(2.4rem,6.2vw,4.4rem);max-width:12ch}
+.passos p.intro{margin-top:18px;max-width:34ch}
+.passos .cupom-caixa{justify-self:center}
+.passos .cupom{font-size:1rem}
+.passos .pas{margin-top:14px}
+.passos .pas b{display:block}
+.passos .pas span{display:block;padding-left:3ch;color:#44514a;font-size:.9rem}
+@media(min-width:900px){.passos{grid-template-columns:1fr 1fr;gap:72px}}
+
+/* privacidade */
+.priv{background:var(--tinta);color:#EAF0EC}
+.priv h2{font-size:clamp(2.4rem,6.2vw,4.4rem);max-width:14ch}
+.priv .col{display:grid;gap:18px;margin-top:28px;max-width:56ch}
+.priv a{color:var(--etiqueta);text-underline-offset:3px}
+.priv :focus-visible{outline-color:var(--etiqueta)}
+
+/* instalar e perguntas */
+.sec-titulo{font-size:clamp(2.2rem,5vw,3.6rem);max-width:16ch}
+.sec-sub{margin-top:14px;max-width:46ch;color:var(--mudo)}
+.lista{margin-top:30px;border-top:2px solid var(--tinta);max-width:760px}
+.lista details{border-bottom:1px solid var(--linha)}
+.lista summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 0;font-weight:700;font-size:1.1rem;min-height:56px}
+.lista summary::-webkit-details-marker{display:none}
+.lista summary::after{content:"+";font:400 1.8rem/1 var(--texto);color:var(--verde);flex:none}
+.lista details[open] summary::after{content:"\2212"}
+.lista .resp{padding:0 0 22px;max-width:58ch;color:#27332d}
+.lista .resp ol{margin:0;padding-left:1.3em}
+.lista .resp li{margin-top:6px}
+.lista .resp p+p,.lista .resp p+ol{margin-top:12px}
+
+/* final */
+.final{padding-block:clamp(64px,10vw,128px)}
+.final h2{font-size:clamp(2.8rem,8vw,5.6rem);max-width:12ch}
+.final .acao{margin-top:30px}
+.rodape{padding-block:28px 48px;border-top:1px solid var(--linha);color:var(--mudo);font-size:.92rem}
+.rodape .miolo{display:flex;flex-wrap:wrap;gap:8px 24px}
+</style>
+</head>
+<body>
+
+<header class="topo miolo">
+  <a class="marca" href="./"><img src="../icon.svg" alt="" width="30" height="30">Caderninho do Mercado</a>
+</header>
+
+<main>
+
+<section class="heroi miolo">
+  <div>
+    <h1>Descubra o que ficou mais caro no seu mercado</h1>
+    <p class="sub">Escaneie o QR Code da nota fiscal. O app mostra o que subiu de preço, quanto você gasta por categoria e onde dá para cortar.</p>
+    <div class="acao">
+      <a class="btn" href="/">Abrir o app grátis</a>
+      <p class="risco">Sem cadastro. Seus dados ficam só no seu celular.</p>
+    </div>
+  </div>
+  <div class="cupom-caixa" role="img" aria-label="Exemplo de cupom fiscal com anotações do app: arroz subiu 7 por cento desde março, café subiu 26 por cento, biscoito com 11 por cento menos conteúdo pelo mesmo preço">
+    <div class="cupom" aria-hidden="true">
+      <div class="c"><b>SUPERMERCADO CENTRAL</b>CNPJ 11.222.333/0001-81<br>DANFE NFC-e</div>
+      <hr>
+      <div class="it"><span>LEITE INTEGRAL 1L</span><span class="pr">12 x 5,24<i></i>62,88</span></div>
+      <div class="it"><span>ARROZ TIPO 1 5KG</span><span class="pr">1 x 26,22<i></i>26,22</span><span class="etq" style="--i:0">+7,0% desde março</span></div>
+      <div class="it"><span>CAFE MOIDO 500G</span><span class="pr">1 x 23,81<i></i>23,81</span><span class="etq" style="--i:1">+26,0% desde março</span></div>
+      <div class="it"><span>BISC RECHEADO CHOC 80G</span><span class="pr">3 x 3,50<i></i>10,50</span><span class="etq" style="--i:2">11% menos conteúdo, mesmo preço</span></div>
+      <div class="it"><span>FRANGO CONGELADO KG</span><span class="pr">2,2 x 14,06<i></i>30,93</span></div>
+      <hr>
+      <div class="tot"><span>TOTAL R$</span><span>154,34</span></div>
+    </div>
+    <p class="legenda">Exemplo com dados fictícios. As etiquetas amarelas são o que o app acrescenta.</p>
+  </div>
+</section>
+
+<section class="miolo" aria-label="Em resumo">
+  <dl class="fatos">
+    <div><dt>Sem cadastro</dt><dd>Você não cria conta, não informa e-mail nem CPF.</dd></div>
+    <div><dt>Dados no seu celular</dt><dd>As notas ficam guardadas no aparelho, não em um servidor.</dd></div>
+    <div><dt>Em fase de testes</dt><dd>Validado com notas do Rio Grande do Sul. Os outros estados ainda estão em teste.</dd></div>
+  </dl>
+</section>
+
+<section class="bloco problema miolo">
+  <h2>O preço muda e ninguém avisa.</h2>
+  <p>O arroz subiu? O pacote de biscoito encolheu? A resposta está nas suas notas fiscais, mas ninguém compara uma nota com a outra. O Caderninho faz isso por você, a cada compra.</p>
+</section>
+
+<section class="miolo" aria-label="O que o app mostra">
+  <div class="rec">
+    <div>
+      <h3>Veja o que subiu, produto por produto</h3>
+      <p>O app compara cada produto com o preço que você pagou antes, por quilo ou por litro. Toque em um ponto do gráfico para ver o dia, o preço e a loja.</p>
+    </div>
+    <figure class="tela">
+      <div class="quadro"><img src="img/historico.webp" width="566" height="768" loading="lazy" alt="Gráfico do preço do café por quilo, subindo de 37 reais e 80 centavos em março para 47 reais e 62 centavos em novembro"></div>
+      <figcaption>Exemplo com dados fictícios.</figcaption>
+    </figure>
+  </div>
+
+  <div class="rec inv">
+    <div>
+      <h3>Descubra se o pacote encolheu</h3>
+      <p>Mesmo nome, menos conteúdo, mesmo preço na etiqueta. O app avisa quando o preço por quilo subiu porque o produto ficou menor.</p>
+      <p class="ressalva">Pode errar quando os dois tamanhos existem juntos na prateleira. Por isso o aviso é cauteloso.</p>
+    </div>
+    <figure class="tela">
+      <div class="quadro"><img src="img/embalagem.webp" width="716" height="584" loading="lazy" alt="Aviso de embalagem menor: biscoito de 90 gramas para 80 gramas, mesmo preço de 3 reais e 50 centavos, preço por quilo 12,5 por cento mais alto"></div>
+      <figcaption>Exemplo com dados fictícios.</figcaption>
+    </figure>
+  </div>
+
+  <div class="rec">
+    <div>
+      <h3>Saiba a sua inflação, não a da média</h3>
+      <p>Uma média dos produtos que você repete, ponderada pelo quanto você gasta neles. Dá para comparar com o IPCA de alimentos do IBGE.</p>
+    </div>
+    <figure class="tela">
+      <div class="quadro"><img src="img/inflacao.webp" width="716" height="346" loading="lazy" alt="Cartão mostrando a inflação do mercado do usuário: mais 10,6 por cento em 12 meses"></div>
+      <figcaption>Exemplo com dados fictícios.</figcaption>
+    </figure>
+  </div>
+
+  <div class="rec inv">
+    <div>
+      <h3>Acompanhe o mês antes que ele acabe</h3>
+      <p>Defina uma meta de gasto e veja a barra encher a cada nota. Depois do dia 10, o app estima como o mês deve fechar.</p>
+    </div>
+    <figure class="tela">
+      <div class="quadro"><img src="img/meta.webp" width="716" height="424" loading="lazy" alt="Barra de meta do mês: 204 reais e 91 centavos gastos de uma meta de 900 reais"></div>
+      <figcaption>Exemplo com dados fictícios.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="bloco miolo">
+  <div class="passos">
+    <div>
+      <h2>Três passos, uns dez segundos</h2>
+      <p class="intro">Você só precisa da nota fiscal da compra, impressa ou digital.</p>
+    </div>
+    <div class="cupom-caixa">
+      <div class="cupom">
+        <div class="c"><b>COMO FUNCIONA</b></div>
+        <hr>
+        <div class="pas"><b>1  Escaneie o QR Code</b><span>Fica no cupom. Se a câmera não ler, cole o endereço.</span></div>
+        <div class="pas"><b>2  O app guarda os itens</b><span>Nome, preço, loja e data, no seu celular.</span></div>
+        <div class="pas"><b>3  Compare a cada compra</b><span>Quanto mais notas, mais o app descobre.</span></div>
+        <hr>
+        <div class="tot"><span>TOTAL R$</span><span>0,00</span></div>
+        <div class="c" style="margin-top:8px">Sem cadastro, sem cartão.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bloco priv">
+  <div class="miolo">
+    <h2>Suas notas ficam no seu celular.</h2>
+    <div class="col">
+      <p>Itens, preços e categorias são guardados no próprio aparelho. Não existe conta, e o projeto não tem um servidor com as suas compras.</p>
+      <p>Para buscar a nota, o app envia o endereço do QR Code a um leitor intermediário, que abre a página pública da Secretaria da Fazenda e devolve o texto. Ele não guarda o que lê.</p>
+      <p>Se você limpar os dados do navegador ou trocar de celular, as notas somem. Por isso o app lembra você de fazer um backup em arquivo.</p>
+      <p><a href="../privacidade.html">Ler a política de privacidade</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="bloco miolo">
+  <h2 class="sec-titulo">Instale na tela inicial</h2>
+  <p class="sec-sub">Abre mais rápido, em tela cheia, e a câmera costuma funcionar melhor.</p>
+  <div class="lista">
+    <details>
+      <summary>iPhone (Safari)</summary>
+      <div class="resp">
+        <ol>
+          <li>Abra <b>caderninhodomercado.com.br</b> no Safari.</li>
+          <li>Toque em <b>Compartilhar</b>, o quadrado com uma seta para cima.</li>
+          <li>Escolha <b>Adicionar à Tela de Início</b>.</li>
+          <li>Toque em <b>Adicionar</b>.</li>
+        </ol>
+        <p>Se você já usou o app no Safari e tem notas guardadas, faça um backup antes (Ajustes, Fazer backup). No ícone novo, as notas começam do zero.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Android (Chrome)</summary>
+      <div class="resp">
+        <ol>
+          <li>Abra <b>caderninhodomercado.com.br</b> no Chrome.</li>
+          <li>Toque no menu, os três pontinhos no canto.</li>
+          <li>Escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li>
+          <li>Confirme.</li>
+        </ol>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="bloco miolo" style="padding-top:0">
+  <h2 class="sec-titulo">Perguntas frequentes</h2>
+  <div class="lista">
+    <details>
+      <summary>É grátis?</summary>
+      <div class="resp"><p>Hoje, sim. O app está em fase de testes.</p></div>
+    </details>
+    <details>
+      <summary>Funciona no meu estado?</summary>
+      <div class="resp"><p>Foi validado com notas do Rio Grande do Sul. Nos outros estados ele pode funcionar, mas ainda está em teste. Se a leitura falhar, o app deixa você colar o texto da nota e envia um relatório do problema, sem CPF, pelo menu Compartilhar.</p></div>
+    </details>
+    <details>
+      <summary>O app guarda o meu CPF?</summary>
+      <div class="resp"><p>Não. Se o seu CPF estiver na nota, ele não é salvo.</p></div>
+    </details>
+    <details>
+      <summary>Precisa de internet?</summary>
+      <div class="resp"><p>Para ler uma nota nova, sim. Para ver o que você já guardou, não: o app abre sem conexão.</p></div>
+    </details>
+    <details>
+      <summary>E se eu trocar de celular?</summary>
+      <div class="resp"><p>As notas ficam só no aparelho. Em Ajustes, use <b>Fazer backup</b> para salvar um arquivo e <b>Importar</b> no celular novo.</p></div>
+    </details>
+    <details>
+      <summary>Quem faz o app?</summary>
+      <div class="resp"><p>É um projeto independente, em fase de testes. Dúvidas e sugestões: <a href="mailto:caderninhodomercado@gmail.com">caderninhodomercado@gmail.com</a>.</p></div>
+    </details>
+  </div>
+</section>
+
+<section class="final miolo">
+  <h2>Comece pela próxima nota fiscal</h2>
+  <div class="acao">
+    <a class="btn" href="/">Abrir o app grátis</a>
+    <p class="risco">Sem cadastro. Seus dados ficam só no seu celular.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="miolo">
+    <a href="../privacidade.html">Política de privacidade</a>
+    <a href="mailto:caderninhodomercado@gmail.com">Contato</a>
+    <span>Caderninho do Mercado, versão em teste</span>
+  </div>
+</footer>
+
+</body>
+</html>
