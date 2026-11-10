@@ -1,7 +1,7 @@
 // Testa o proxy sem rede, com fetch simulado. Rodar: node tests/worker.test.js
 const assert = require('assert');
 const path = require('path');
-const ORIGEM = 'https://viniciusjardimcosta-beep.github.io';
+const ORIGEM = 'https://caderninhodomercado.com.br';
 let n = 0;
 async function t(name, fn) { try { await fn(); n++; console.log('ok  ', name); } catch (e) { console.error('FALHOU', name, '\n', e.message); process.exitCode = 1; } }
 

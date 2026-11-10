@@ -6,11 +6,9 @@
  */
 const MAX_BYTES = 2 * 1024 * 1024;
 // Só o seu app pode usar este proxy. Se mudar o endereço do app, mude aqui também.
-// Durante a mudança de endereço, os dois ficam valendo; depois pode tirar o antigo.
 const ALLOWED_ORIGINS = [
   'https://caderninhodomercado.com.br',
-  'https://www.caderninhodomercado.com.br',
-  'https://viniciusjardimcosta-beep.github.io'
+  'https://www.caderninhodomercado.com.br'
 ];
 
 // Limite de consultas por endereço de rede, contra scripts que gastariam a cota.
