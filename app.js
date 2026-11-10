@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.13.0';
+  const VERSION = '0.13.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -376,7 +376,7 @@
     const contar = function () { return S.lista.filter(function (i) { return !i.feito; }).length; };
     const input = h('input', { type: 'text', id: 'anota-q', placeholder: 'Anotar: o que está faltando?', 'aria-label': 'Anotar item na lista de compras', autocomplete: 'off', enterkeyhint: 'done' });
     const sug = h('div', { id: 'anota-sug' });
-    const cab = h('div', { class: 'flex', style: 'justify-content:space-between;align-items:center' });
+    const cab = h('div', { class: 'flex', style: 'justify-content:space-between;align-items:center;margin-bottom:10px' });
     const abrir = function () { tab = 'buys'; comprasModo = 'lista'; render(); };
     const topo = function () {
       const n = contar();
