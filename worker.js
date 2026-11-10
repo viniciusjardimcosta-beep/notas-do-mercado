@@ -1,6 +1,7 @@
 /* Proxy mínimo para o app (Cloudflare Worker).
  * Por que existe: o navegador não pode ler as páginas da SEFAZ direto (CORS).
- * O que faz: busca a página pública da nota e devolve o texto. Não guarda nada, não registra nada.
+ * O que faz: busca a página pública da nota e devolve o texto. Não guarda o conteúdo das notas.
+ * Opcional: conta consultas por UF, de forma anônima (veja METRICAS abaixo).
  * Só aceita endereços de sites do governo (.gov.br) de fazenda/sefaz.
  */
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -27,6 +28,24 @@ function estourou(ip, agora) {
     if (visitas.size > MAX_IPS) visitas.clear();
   }
   return v.n > LIMITE;
+}
+
+// Contagem anônima (opcional): se existir um binding do Workers Analytics Engine chamado METRICAS,
+// cada consulta vira um ponto com só duas informações: a UF (2 primeiros dígitos da chave) e se deu certo.
+// Não grava a chave, o endereço, o IP nem qualquer dado da nota. Conta notas lidas, não pessoas.
+const UF_POR_CODIGO = { 11: 'RO', 12: 'AC', 13: 'AM', 14: 'RR', 15: 'PA', 16: 'AP', 17: 'TO', 21: 'MA', 22: 'PI', 23: 'CE', 24: 'RN', 25: 'PB', 26: 'PE', 27: 'AL', 28: 'SE', 29: 'BA',
+  31: 'MG', 32: 'ES', 33: 'RJ', 35: 'SP', 41: 'PR', 42: 'SC', 43: 'RS', 50: 'MS', 51: 'MT', 52: 'GO', 53: 'DF' };
+function ufDaConsulta(u) {
+  const m = /(?:^|\D)(\d{44})(?:\D|$)/.exec(String(u));
+  return (m && UF_POR_CODIGO[+m[1].slice(0, 2)]) || 'outra';
+}
+function contar(env, u, ok) {
+  try {
+    if (env && env.METRICAS && typeof env.METRICAS.writeDataPoint === 'function') {
+      const uf = ufDaConsulta(u);
+      env.METRICAS.writeDataPoint({ blobs: [uf, ok ? 'ok' : 'erro'], doubles: [1], indexes: [uf] });
+    }
+  } catch (e) { /* contar nunca pode derrubar a consulta */ }
 }
 
 function allowedHost(h) {
@@ -73,6 +92,7 @@ export default {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NotasApp/0.1)', 'Accept': 'text/html,*/*' },
       redirect: 'follow'
     });
+    contar(env, u, r.ok);
     const buf = new Uint8Array(await r.arrayBuffer());
     if (buf.length > MAX_BYTES) return new Response('Resposta grande demais', { status: 413, headers: cors(origin) });
     let text;

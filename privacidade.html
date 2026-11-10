@@ -47,7 +47,7 @@ a{color:var(--brand)}
 </ul>
 
 <h2>Como a leitura da nota funciona</h2>
-<p>O navegador não consegue abrir sozinho o site da Secretaria da Fazenda (SEFAZ). Por isso, ao ler um QR Code, o app envia o <strong>endereço da nota</strong> (que contém a chave de acesso de 44 dígitos) a um serviço de leitura (um Cloudflare Worker). Ele busca a página pública da nota e devolve o texto ao seu aparelho. Esse serviço não grava o conteúdo da nota nem o associa a você. Como em qualquer infraestrutura de internet, o provedor (Cloudflare) pode manter registros técnicos de rede, como endereço IP, para segurança e funcionamento.</p>
+<p>O navegador não consegue abrir sozinho o site da Secretaria da Fazenda (SEFAZ). Por isso, ao ler um QR Code, o app envia o <strong>endereço da nota</strong> (que contém a chave de acesso de 44 dígitos) a um serviço de leitura (um Cloudflare Worker). Ele busca a página pública da nota e devolve o texto ao seu aparelho. Esse serviço não grava o conteúdo da nota nem o associa a você. Ele só conta, de forma anônima, quantas notas foram lidas por estado (a sigla da UF, tirada da chave) e se a leitura deu certo, sem guardar a chave, o endereço ou qualquer dado seu. Isso serve para saber em quais estados o app funciona. Como em qualquer infraestrutura de internet, o provedor (Cloudflare) pode manter registros técnicos de rede, como endereço IP, para segurança e funcionamento.</p>
 <p>O serviço só aceita requisições vindas do app e só busca endereços de sites de fazenda/SEFAZ.</p>
 
 <h2>Câmera</h2>
