@@ -187,6 +187,6 @@ O Worker pode contar consultas por UF, sem guardar chave, endereço, IP nem dado
 Para ligar (no painel do Cloudflare):
 1. Workers & Pages → seu Worker → Settings → Bindings → Add → **Analytics Engine**.
 2. Variable name: `METRICAS`. Dataset: `notas_consultas`. Salvar e fazer o deploy do `worker.js` novo.
-3. Para ler: crie um API token só com **Account Analytics: Read** e rode `CF_ACCOUNT_ID=... CF_API_TOKEN=... node worker/ler-metricas.js 30`.
+3. Para ler: crie um API token só com **Account Analytics: Read** e rode `CF_ACCOUNT_ID=... CF_API_TOKEN=... node ler-metricas.js 30`.
 
 A política de privacidade foi atualizada com uma frase sobre isso.
