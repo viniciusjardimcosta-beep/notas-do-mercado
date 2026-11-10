@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.10.4';
+  const VERSION = '0.10.5';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {} };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -19,6 +19,12 @@
   function save() { store.set(JSON.stringify(S)); }
   // Endereço do proxy: o que a pessoa digitou em Ajustes ou, se vazio, o padrão do app (index.html).
   function proxyUrl() { return S.proxy || CFG.proxy || ''; }
+  // Migração: quem salvou o endereço do proxy em Ajustes antes da troca de subdomínio ficaria preso ao endereço antigo,
+  // que não responde mais. Se o salvo tem a forma do padrão (notas-proxy.X.workers.dev) e difere do padrão atual, volta ao padrão.
+  (function migrarProxy() {
+    const forma = /^https?:\/\/notas-proxy\.[a-z0-9-]+\.workers\.dev\/?$/i;
+    if (S.proxy && CFG.proxy && forma.test(S.proxy) && forma.test(CFG.proxy) && S.proxy.replace(/\/$/, '') !== CFG.proxy.replace(/\/$/, '')) { S.proxy = ''; save(); }
+  })();
 
   // ---------- backup ----------
   const DIA = 864e5;
