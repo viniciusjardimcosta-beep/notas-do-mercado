@@ -364,6 +364,27 @@ function nota(itens, data, loja) {
   }
   console.log('ok   lembrete de backup a cada 14 dias');
 
+  // 6h3) resumo por categoria: padrão 12 meses, dá para escolher um mês, com porcentagem
+  {
+    const cM = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const itM = (n, v) => ({ nome: n, codigo: n, qtd: 1, un: 'UN', vlUnit: v, vlTotal: v });
+    await cM.addInitScript(s => { window.NOTAS_CONFIG = { proxy: '' }; if (!localStorage.getItem('notas.v1')) localStorage.setItem('notas.v1', JSON.stringify(s)); }, { seen: true, lastBackup: new Date().toISOString(), purchases: [
+      { id: 'm1', date: '2026-09-10', store: { name: 'M', cnpj: '1' }, total: 50, items: [itM('LEITE INTEGRAL 1L', 10), itM('CARNE BOVINA KG', 40)] },
+      { id: 'm2', date: '2026-10-10', store: { name: 'M', cnpj: '1' }, total: 20, items: [itM('LEITE INTEGRAL 1L', 15), itM('DETERGENTE 500ML', 5)] }
+    ] });
+    const pM = await cM.newPage(); await pM.goto(base);
+    assert.strictEqual(await pM.inputValue('#resumo-mes'), '', 'padrão: sem mês escolhido');
+    let tM = await pM.innerText('#card-categorias');
+    assert.ok(/%/.test(tM), 'mostra porcentagem: ' + tM);
+    await pM.selectOption('#resumo-mes', '2026-10');
+    tM = await pM.innerText('#card-categorias');
+    assert.ok(/out\/26: R\$\s20,00 em 1 nota/.test(tM) && /75%/.test(tM) && /25%/.test(tM) && !/CARNE|Carne/.test(tM), tM);
+    await pM.selectOption('#resumo-mes', '');
+    assert.ok(/Carne|CARNE|carne/i.test(await pM.innerText('#card-categorias')), 'volta ao padrão');
+    await cM.close();
+  }
+  console.log('ok   resumo por categoria com escolha de mês');
+
   // 6i3) embalagem menor + lista de compras (data fixa em 07/11/2026)
   const ctxL = await browser.newContext({ viewport: { width: 390, height: 800 } });
   const mkIt = (nome, cod, v) => ({ nome, codigo: cod, qtd: 1, un: 'UN', vlUnit: v, vlTotal: v });

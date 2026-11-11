@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.15.0';
+  const VERSION = '0.16.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -230,7 +230,7 @@
     });
     S.lista.push({ id: novoId(), key: null, nome: 'Pão de forma', qtd: 1, preco: 8.5, feito: false });
   }
-  function resetTela() { editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
+  function resetTela() { resumoMes = ''; editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
   function enterDemo() {
     if (DEMO) return;
     REAL = S; S = buildDemo(); DEMO = true; preencherListaDemo(); tab = 'home'; resetTela(); render();
@@ -522,14 +522,27 @@
     }
     view.append(card3);
 
-    // categorias
-    const cats = Core.categoryTotals(S.purchases, S.overrides, S.cutMap);
+    // categorias (padrão: últimos 12 meses; dá para escolher um mês)
+    const meses = Core.monthlyTotals(S.purchases).reverse();
+    if (resumoMes && !meses.some(function (m) { return m.mes === resumoMes; })) resumoMes = '';
+    const cats = Core.categoryTotals(S.purchases, S.overrides, S.cutMap, resumoMes || undefined);
     const max = cats.length ? cats[0].total : 1;
+    const soma = cats.reduce(function (a, c) { return a + c.total; }, 0);
     const recorte = Core.windowPurchases(S.purchases).length < S.purchases.length;
-    const card4 = h('div', { class: 'card' }, h('div', { class: 'mute', text: 'Para onde foi o dinheiro' + (recorte ? ' (últimos 12 meses)' : '') }));
+    const seletor = h('select', { id: 'resumo-mes', 'aria-label': 'Período do resumo por categoria', style: 'width:auto;max-width:100%;padding:6px 10px;font-size:15px;margin:6px 0 4px' },
+      h('option', { value: '', selected: !resumoMes }, recorte ? 'Últimos 12 meses' : 'Todo o período'));
+    meses.forEach(function (m) { seletor.append(h('option', { value: m.mes, selected: m.mes === resumoMes }, mesBR(m.mes))); });
+    seletor.addEventListener('change', function () { resumoMes = seletor.value; render(); });
+    const card4 = h('div', { class: 'card', id: 'card-categorias' }, h('div', { class: 'mute', text: 'Para onde foi o dinheiro' }), seletor);
+    if (resumoMes) {
+      const nNotas = S.purchases.filter(function (p) { return Core.monthKey(p.date) === resumoMes; }).length;
+      const tot = (meses.filter(function (m) { return m.mes === resumoMes; })[0] || {}).total || 0;
+      card4.append(h('div', { class: 'mute', text: mesBR(resumoMes) + ': ' + brl(tot) + ' em ' + nNotas + (nNotas === 1 ? ' nota' : ' notas') }));
+    }
+    const fatia = function (v) { const x = soma > 0 ? v / soma * 100 : 0; return x > 0 && x < 1 ? '<1%' : Math.round(x) + '%'; };
     cats.forEach(function (c) {
       card4.append(h('div', { style: 'margin-top:10px' },
-        h('div', { class: 'row', style: 'border:0;padding:0' }, h('div', { class: 'n' }, c.nome, c.cortavel ? h('span', { class: 'tag', text: 'cortável' }) : null), h('div', { class: 'v', text: brl(c.total) })),
+        h('div', { class: 'row', style: 'border:0;padding:0' }, h('div', { class: 'n' }, c.nome, c.cortavel ? h('span', { class: 'tag', text: 'cortável' }) : null), h('div', { class: 'v', text: brl(c.total) + ' · ' + fatia(c.total) })),
         h('div', { class: 'bar' + (c.cortavel ? ' cut' : '') }, h('i', { style: 'width:' + Math.max(2, c.total / max * 100) + '%' }))));
     });
     view.append(card4);
@@ -743,6 +756,7 @@
   // ---------- Lista de compras ----------
   let comprasModo = 'notas'; // 'notas' | 'lista'
   let comprasLimite = 20;    // quantas notas a aba Notas desenha; "Ver mais" aumenta
+  let resumoMes = '';        // mês escolhido no resumo por categoria ('' = padrão)
   let listaBusca = '';       // texto da busca para adicionar item
   let listaAbrir = false;    // painel "Adicionar item" aberto
   const fmtQtd = function (q) { return String(Math.round(q * 1000) / 1000).replace('.', ','); };

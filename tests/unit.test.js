@@ -517,4 +517,14 @@ t('resumo por categoria: usa só os últimos 12 meses, como o resto do app', () 
   assert.strictEqual(Math.round(tot * 100) / 100, 10, 'a nota de 2024 fica fora');
   assert.strictEqual(C.categoryTotals(P.slice(1), {}, {}).reduce((s, c) => s + c.total, 0), 10);
 });
+t('resumo por categoria: com mês escolhido usa só aquele mês, mesmo fora da janela de 12 meses', () => {
+  const mk = (id, d, v) => ({ id, date: d, store: { name: 'M', cnpj: '1' }, total: v, items: [{ nome: 'LEITE INTEGRAL 1L', codigo: '2', qtd: 1, un: 'UN', vlUnit: v, vlTotal: v }] });
+  const P = [mk('a', '2024-01-10', 100), mk('b', '2026-10-10', 7), mk('c', '2026-11-05', 3)];
+  const soma = l => Math.round(l.reduce((s, c) => s + c.total, 0) * 100) / 100;
+  assert.strictEqual(soma(C.categoryTotals(P, {}, {}, '2024-01')), 100, 'mês antigo continua acessível');
+  assert.strictEqual(soma(C.categoryTotals(P, {}, {}, '2026-10')), 7);
+  assert.strictEqual(soma(C.categoryTotals(P, {}, {}, '2026-09')), 0);
+  assert.strictEqual(soma(C.categoryTotals(P, {}, {})), 10, 'sem mês: janela de 12 meses');
+  assert.strictEqual(C.monthKey('2026-11-05'), '2026-11');
+});
 console.log('\n' + n + ' testes passaram' + (process.exitCode ? ' (com falhas)' : ''));

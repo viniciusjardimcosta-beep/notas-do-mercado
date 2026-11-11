@@ -200,3 +200,9 @@ A política de privacidade foi atualizada com uma frase sobre isso.
 
 - Título agora é uma pergunta: "Para onde vai o seu dinheiro no mercado?". O link do exemplo virou "Ver como funciona, sem escanear nada".
 - Nova seção da lista de compras (imagem fictícia `img/lista.webp`), bloco "Para quem controla o mercado sem planilha" e uma pergunta nova no FAQ (a lista exige ao menos uma nota).
+
+## Resumo por mês (v0.16)
+
+- "Para onde foi o dinheiro" continua, por padrão, com os últimos 12 meses (ou todo o período, se o histórico for menor).
+- Um seletor permite escolher um mês específico (qualquer mês com notas, mesmo mais antigo que 12 meses): mostra o total do mês, o número de notas e cada categoria com valor e porcentagem do total.
+- A porcentagem também aparece no modo padrão. A escolha vale só para a tela aberta e volta ao padrão ao recarregar.

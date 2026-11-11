@@ -201,9 +201,11 @@
   // ---------- análises ----------
   function monthKey(d) { return String(d || '').slice(0, 7); }
 
-  function categoryTotals(purchases, overrides, cutMap) {
-    // mesma janela de 12 meses do resto do app, para os números do Resumo baterem entre si
-    const products = buildProducts(windowPurchases(purchases));
+  function categoryTotals(purchases, overrides, cutMap, mes) {
+    // sem mês: mesma janela de 12 meses do resto do app, para os números do Resumo baterem entre si.
+    // com mês (AAAA-MM): só as notas daquele mês, sem janela.
+    const base = mes ? purchases.filter(function (p) { return monthKey(p.date) === mes; }) : windowPurchases(purchases);
+    const products = buildProducts(base);
     const totals = {};
     CATEGORIES.forEach(function (c) { totals[c.id] = { id: c.id, nome: c.nome, total: 0, itens: 0 }; });
     products.forEach(function (pr) {
@@ -574,7 +576,7 @@
   return {
     windowPurchases: windowPurchases, JANELA_MESES: JANELA_MESES, parseMoney: parseMoney, goalStatus: goalStatus, lookupProducts: lookupProducts, catalogo: catalogo, qtdSugerida: qtdSugerida, passoQtd: passoQtd, estimarLista: estimarLista, shrinkAlerts: shrinkAlerts, shoppingList: shoppingList,
     CATEGORIES: CATEGORIES, categorize: categorize, normalizeName: normalizeName, parseSize: parseSize,
-    buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals,
+    buildProducts: buildProducts, unitPrice: unitPrice, categoryTotals: categoryTotals, monthlyTotals: monthlyTotals, monthKey: monthKey,
     priceChanges: priceChanges, personalInflation: personalInflation, storeCompare: storeCompare, cutPotential: cutPotential,
     priceAlerts: priceAlerts, configure: configure, resolveKey: resolveKey, pairKey: pairKey, suggestMerges: suggestMerges, monthCompare: monthCompare
   };
