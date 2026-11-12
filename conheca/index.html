@@ -19,14 +19,14 @@
 <meta property="og:image:alt" content="Cupom fiscal com a anotação: arroz subiu 7% desde março">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
-<link rel="preload" href="fonts/titulo-800.woff" as="font" type="font/woff" crossorigin>
-<link rel="preload" href="fonts/texto-400.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/titulo-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/texto-400.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-@font-face{font-family:"Titulo";src:url("fonts/titulo-800.woff") format("woff");font-weight:800;font-style:normal;font-display:swap}
-@font-face{font-family:"Texto";src:url("fonts/texto-400.woff") format("woff");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Texto";src:url("fonts/texto-700.woff") format("woff");font-weight:700;font-style:normal;font-display:swap}
-@font-face{font-family:"Cupom";src:url("fonts/cupom-400.woff") format("woff");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Cupom";src:url("fonts/cupom-700.woff") format("woff");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Titulo";src:url("fonts/titulo-800.woff2") format("woff2");font-weight:800;font-style:normal;font-display:swap}
+@font-face{font-family:"Texto";src:url("fonts/texto-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Texto";src:url("fonts/texto-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"Cupom";src:url("fonts/cupom-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Cupom";src:url("fonts/cupom-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
 
 :root{
   --papel:#F3F5F1;
@@ -91,11 +91,18 @@ p{margin:0}
 .legenda{margin-top:30px;text-align:center;color:var(--mudo);font-size:.9rem}
 
 @media(prefers-reduced-motion:no-preference){
-  .cupom{animation:imprimir 1.7s cubic-bezier(.35,.7,.25,1) both}
-  .etq{animation:cola .4s ease-out both;animation-delay:calc(1.1s + var(--i)*.28s)}
+  .cupom{animation:imprimir 1.1s cubic-bezier(.35,.7,.25,1) both}
+  .etq{animation:cola .4s ease-out both;animation-delay:calc(.7s + var(--i)*.2s)}
 }
 @keyframes imprimir{from{clip-path:inset(-20px -20px 100% -20px)}to{clip-path:inset(-20px -20px -20px -20px)}}
 @keyframes cola{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.risco .peq{display:block;margin-top:6px;font-size:.85rem}
+/* chamada no meio da página */
+.cta-meio{padding-block:56px 8px}
+.cta-meio h2{font:800 clamp(1.8rem,5.2vw,2.6rem)/1.02 var(--titulo);max-width:20ch;margin:0 0 22px;text-wrap:balance}
+.cta-meio .acao{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.cta-meio .risco{margin:0}
 
 /* fatos */
 .fatos{border-top:2px solid var(--tinta);display:grid;gap:0;margin:0;padding:0}
@@ -176,7 +183,7 @@ p{margin:0}
     <p class="sub">Escaneie o QR Code da nota fiscal. Em uns dez segundos, o app mostra o que subiu de preço, quanto você gasta por categoria e onde dá para cortar.</p>
     <div class="acao">
       <a class="btn" href="/">Abrir o app grátis</a>
-      <p class="risco">Sem cadastro. Seus dados ficam só no seu celular.</p>
+      <p class="risco">Você só precisa de uma nota de mercado com QR Code.<br>Sem cadastro. Dados só no seu celular.<span class="peq">Validado com notas do Rio Grande do Sul; outros estados em teste.</span></p>
       <a class="exemplo" href="/?exemplo">Ver como funciona, sem escanear nada</a>
     </div>
   </div>
@@ -294,6 +301,16 @@ p{margin:0}
   </div>
 </section>
 
+<section class="miolo cta-meio" aria-label="Começar">
+  <h2>Pronto para ver para onde vai o seu dinheiro?</h2>
+  <div class="acao">
+    <a class="btn" href="/">Abrir o app grátis</a>
+    <p class="risco">Você só precisa de uma nota de mercado com QR Code. Sem cadastro.<span class="peq">Validado com notas do Rio Grande do Sul; outros estados em teste.</span></p>
+    <a class="exemplo" href="/?exemplo">Ver como funciona, sem escanear nada</a>
+    <a class="exemplo" href="#instalar">Instalar na tela inicial, em 2 toques</a>
+  </div>
+</section>
+
 <section class="bloco priv">
   <div class="miolo">
     <h2>Suas notas ficam no seu celular.</h2>
@@ -306,7 +323,7 @@ p{margin:0}
   </div>
 </section>
 
-<section class="bloco miolo">
+<section class="bloco miolo" id="instalar">
   <h2 class="sec-titulo">Instale na tela inicial</h2>
   <p class="sec-sub">Abre mais rápido, em tela cheia, e a câmera costuma funcionar melhor.</p>
   <div class="lista">

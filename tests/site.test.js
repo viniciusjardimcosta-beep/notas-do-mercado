@@ -16,10 +16,13 @@ const html = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
   assert.ok(fs.existsSync(path.join(SITE, 'previa.png')), 'falta a imagem de prévia');
   // 3) CTA único e consistente
   const ctas = [...html.matchAll(/class="btn" href="([^"]+)">([^<]+)</g)];
-  assert.ok(ctas.length === 2 && ctas.every(c => c[1] === '/' && c[2] === 'Abrir o app grátis'), JSON.stringify(ctas.map(c => c.slice(1))));
-  assert.strictEqual((html.match(/href="\/\?exemplo"/g) || []).length, 2, 'link do exemplo no topo e no final');
+  assert.ok(ctas.length === 3 && ctas.every(c => c[1] === '/' && c[2] === 'Abrir o app grátis'), JSON.stringify(ctas.map(c => c.slice(1))));
+  assert.strictEqual((html.match(/href="\/\?exemplo"/g) || []).length, 3, 'link do exemplo no topo, no meio e no final');
+  assert.ok(html.includes('id="instalar"') && html.includes('href="#instalar"'), 'âncora da instalação');
+  assert.strictEqual((html.match(/[Vv]alidado com notas do Rio Grande do Sul/g) || []).length >= 2, true, 'aviso do RS perto dos botões');
+  assert.ok(!/\.woff"/.test(html) && /\.woff2"/.test(html), 'fontes em woff2');
   // 4) renderização: sem estouro lateral, imagens e fontes carregam, sem pedidos externos
-  const mime = { '.html': 'text/html', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.webp': 'image/webp', '.png': 'image/png' };
+  const mime = { '.html': 'text/html', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webp': 'image/webp', '.png': 'image/png' };
   const srv = http.createServer((q, r) => { let u = q.url.split('?')[0]; if (u.endsWith('/')) u += 'index.html';
     const f = u.startsWith('/conheca/') ? path.join(SITE, u.slice(9)) : path.join(APP, u);
     fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); } else { r.writeHead(200, { 'content-type': mime[path.extname(f)] || 'application/octet-stream' }); r.end(d); } }); });
