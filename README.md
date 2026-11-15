@@ -217,3 +217,6 @@ Motivo: uma nota de mercado do RS com QR pequeno e denso (endereço + código de
 ## v0.17.1 e v0.17.2
 - v0.17.1: quando a SEFAZ responde "101 - CSC inválido" (QR impresso com defeito pelo mercado), o app explica e leva ao plano B.
 - v0.17.2: o plano B entende o texto do portal DFe (dfe-portal.svrs.rs.gov.br), onde cada campo vem em uma linha (número, descrição, quantidade, unidade, valor total). Não há valor unitário nesse texto: o app procura o preço de 2 casas cujo total, truncado ou arredondado, bate com o item (1,145 kg × 7,99 = 9,1485 → 9,14). Limitação: sem o texto completo da página não há data, loja, total nem desconto por item; a data e a loja se corrigem na revisão.
+
+## v0.18 — registrar só o total
+Quando uma nota não abre (por exemplo QR recusado pela SEFAZ, erro 101), o app oferece "Registrar só o total": valor, loja e data, sem itens. A nota é guardada com `semItens: true` e `items: []`: entra no gasto do mês e em "Outros" no resumo por categoria, mas não vira produto (não aparece em Preços, alertas nem lista). Quando a chave é conhecida, ela é guardada para evitar duplicata e a loja vem do CNPJ de notas anteriores. Também há o cartão "4. Sem QR Code? Registre só o total" na aba Adicionar. Texto do erro 101 suavizado: "a SEFAZ não aceitou o código impresso no cupom. Isso acontece às vezes e não é problema do seu celular."

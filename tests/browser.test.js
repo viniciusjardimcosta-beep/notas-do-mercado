@@ -257,13 +257,45 @@ function nota(itens, data, loja) {
     await pg.click('text=Entendi, começar');
     await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS + '|2|1|1|ABC');
     await pg.click('text=Buscar nota');
-    await pg.waitForSelector('text=recusou o QR Code desta nota');
+    await pg.waitForSelector('text=a SEFAZ não aceitou o código impresso');
     const t3 = await pg.innerText('#view');
-    assert.ok(/não no app nem na câmera/.test(t3) && /opção 3/.test(t3) && !/Não consegui achar itens/.test(t3), t3);
-    assert.ok(t3.replace(/\s/g, '').includes(chRS.replace(/(\d{4})(?=\d)/g, '$1 ').replace(/\s/g, '')));
+    assert.ok(/registrar o gasto à mão/.test(t3) && !/Não consegui achar itens/.test(t3), t3);
     await cx.close();
   }
   console.log('ok   SEFAZ recusa o QR (CSC inválido): mensagem clara');
+
+  // 6e3b) da mensagem do QR recusado direto para o cadastro rápido só com o total
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: '101 - CSC inválido para o contribuinte.' }));
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota');
+    await pg.waitForSelector('#manual-csc');
+    const tcsc = await pg.innerText('#view');
+    assert.ok(/não aceitou o código impresso no cupom/.test(tcsc) && !/mercado imprimiu|culpa|defeito/i.test(tcsc), tcsc);
+    await pg.click('#manual-csc');
+    await pg.waitForSelector('#m-total');
+    await pg.click('#m-salvar');
+    assert.ok(/Informe o valor total/.test(await pg.innerText('#view')));
+    await pg.fill('#m-total', '19,04');
+    await pg.fill('#m-loja', 'Weidle & Cia');
+    await pg.fill('#m-data', '15/11/2026');
+    await pg.click('#m-salvar');
+    await pg.waitForSelector('#toast');
+    const salvo = await pg.evaluate(() => JSON.parse(localStorage.getItem('notas.v1')).purchases);
+    assert.strictEqual(salvo.length, 1);
+    assert.ok(salvo[0].semItens && salvo[0].total === 19.04 && salvo[0].date === '2026-11-15' && salvo[0].chave === chRS && salvo[0].items.length === 0, JSON.stringify(salvo));
+    // o mesmo cupom de novo é recusado como duplicado
+    await pg.click('nav button[data-t=add]');
+    await pg.click('#abrir-manual');
+    await pg.fill('#m-total', '19,04'); await pg.fill('#m-data', '15/11/2026');
+    await pg.click('#m-salvar');
+    await cx.close();
+  }
+  console.log('ok   cadastro rápido só com o total (a partir do QR recusado)');
 
   // 6e4) plano B com texto do portal DFe (um campo por linha) abre a revisão com os itens
   {
@@ -280,6 +312,18 @@ function nota(itens, data, loja) {
     await cx.close();
   }
   console.log('ok   plano B com texto do portal DFe');
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.click('summary:has-text("Plano B")');
+    await pg.fill('textarea', 'Dados da NF-e: 43261102355312000224650030005048301782777544\nModelo\n65\nData de Emissão\n15/11/2026 10:23:06-03:00\nValor Total da Nota Fiscal \n19,04\n');
+    await pg.click('text=Ler texto colado');
+    await pg.waitForSelector('text=Produtos e Serviços');
+    await cx.close();
+  }
+  console.log('ok   portal DFe só com a aba de dados: pede a aba de produtos');
 
   // 6f) relatório de problema remove CPF
   await page.click('nav button[data-t=add]');

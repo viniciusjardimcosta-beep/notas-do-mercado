@@ -148,6 +148,7 @@
     const products = [];
     const byGtin = {}, byKey = {};
     purchases.forEach(function (p) {
+      if (p.semItens) return; // nota registrada só com o total: não tem produtos
       p.items.forEach(function (it) {
         const n = normalizeName(it.nome);
         const alvo = resolveKey(n.key);
@@ -215,6 +216,7 @@
         t.total += c.vlTotal; t.itens += 1;
       });
     });
+    base.forEach(function (p) { if (p.semItens) { totals.outros.total += p.total; totals.outros.itens += 1; } });
     const list = Object.keys(totals).map(function (k) {
       const t = totals[k];
       const cat = CATEGORIES.filter(function (c) { return c.id === k; })[0];

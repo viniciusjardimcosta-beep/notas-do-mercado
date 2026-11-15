@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.17.2';
+  const VERSION = '0.18.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -176,6 +176,7 @@
   // ---------- estado de tela ----------
   let tab = 'home';
   let pending = null; // nota lida aguardando confirmação
+  let manualForm = null; // cadastro rápido só com o total: { chave, uf, cnpj, loja } enquanto aberto
   let stream = null, scanning = false;
 
   const view = document.getElementById('view');
@@ -230,7 +231,7 @@
     });
     S.lista.push({ id: novoId(), key: null, nome: 'Pão de forma', qtd: 1, preco: 8.5, feito: false });
   }
-  function resetTela() { resumoMes = ''; editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
+  function resetTela() { manualForm = null; resumoMes = ''; editMeta = false; alertas = null; pending = null; buscaQ = ''; comprasLimite = 20; comprasModo = 'notas'; window.scrollTo(0, 0); }
   function enterDemo() {
     if (DEMO) return;
     REAL = S; S = buildDemo(); DEMO = true; preencherListaDemo(); tab = 'home'; resetTela(); render();
@@ -551,6 +552,7 @@
   // ---------- Adicionar ----------
   function viewAdd() {
     if (pending) return viewReview();
+    if (manualForm) return viewManual();
     const msg = h('div', { id: 'msg' });
     const vid = h('video', { playsinline: true, muted: true, autoplay: true, hidden: true, 'aria-label': 'Câmera' });
     vid.muted = true; vid.playsInline = true;
@@ -580,6 +582,9 @@
       h('details', { class: 'card' }, h('summary', { text: '3. Plano B: colar o texto da nota' }),
         h('div', { class: 'mute', text: 'Abra a nota no navegador, selecione tudo, copie e cole aqui. Serve quando o site da SEFAZ pede CAPTCHA.' }),
         h('div', { style: 'margin-top:8px' }, ta), h('div', { style: 'margin-top:8px' }, btnTxt)),
+      h('div', { class: 'card' }, h('h2', { text: '4. Sem QR Code? Registre só o total' }),
+        h('div', { class: 'mute', text: 'Leva 1 minuto: loja, data e valor total. Entra no gasto do mês, mas sem os itens.' }),
+        h('div', { style: 'margin-top:8px' }, h('button', { id: 'abrir-manual', text: 'Registrar só o total', onclick: function () { abrirManual(); } }))),
       msg);
     if (!proxyUrl()) msg.append(h('div', { class: 'warn', text: 'Para buscar a nota pelo endereço, configure o proxy em Ajustes. Sem ele, use o plano B (colar o texto).' }));
   }
@@ -632,12 +637,16 @@
     if (/CSC inv[aá]lido/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
       lastRead.summary = 'SEFAZ recusou o QR Code (CSC inválido)';
       const k = NFParser.extractChave(origem || '');
-      return say(msg, 'A SEFAZ recusou o QR Code desta nota (erro 101, "CSC inválido"). O defeito está no QR Code impresso pelo mercado, não no app nem na câmera. Use o plano B: abra o site da SEFAZ do seu estado, consulte pela chave de 44 dígitos' + (k ? ' (' + k.replace(/(\d{4})(?=\d)/g, '$1 ') + ')' : ' que está impressa no cupom') + ', copie o texto da nota e cole na opção 3.' + dicaUf(ufOrigem), true);
+      say(msg, 'Não consegui abrir esta nota pelo QR Code: a SEFAZ não aceitou o código impresso no cupom. Isso acontece às vezes e não é problema do seu celular. Você pode registrar o gasto à mão, em 1 minuto.' + dicaUf(ufOrigem), true);
+      msg.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'primary', id: 'manual-csc', text: 'Registrar só o total', onclick: function () { abrirManual(k); } })));
+      try { msg.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* ok */ }
+      return;
     }
     let r;
     try { r = NFParser.parseAny(text); } catch (e) { lastRead.summary = 'erro: ' + e.message; return say(msg, 'Erro ao ler a nota: ' + e.message + dicaUf(ufOrigem), true); }
     if (!lastRead.uf && r.uf) lastRead.uf = r.uf;
     lastRead.summary = r.items.length + ' itens, total ' + r.total + (r.uf ? ', ' + r.uf : '') + (r.warnings.length ? ', avisos: ' + r.warnings.join(' | ') : '');
+    if (!r.items.length && /Dados\s+da\s+NF-?e/i.test(text)) return say(msg, 'Esse texto é só a aba "Dados da NF-e" do portal, sem os produtos. No portal, abra também a aba "Produtos e Serviços", copie o texto dela e cole no mesmo campo, logo abaixo do que já está lá.' + dicaUf(ufOrigem), true);
     if (!r.items.length) return say(msg, 'Não consegui achar itens nessa página. Se o texto da nota estiver na tela, use o plano B e me mande um exemplo para eu ajustar o leitor (sem CPF).' + dicaUf(lastRead.uf), true);
     if (!r.chave) { const k = NFParser.extractChave(origem); if (k) r.chave = k; }
     if (isDup(r)) return say(msg, 'Essa nota já estava salva (' + dataBR(r.date) + ', ' + brl(r.total) + ').', true);
@@ -777,6 +786,52 @@
       s.onload = function () { window.jsQR ? ok() : fail(new Error('jsQR ausente')); };
       s.onerror = fail; document.head.append(s);
     });
+  }
+
+  // ---------- cadastro rápido: só o total (nota que não abre pelo QR Code) ----------
+  function abrirManual(chave) {
+    const info = chave && NFParser.validChave(chave) ? NFParser.parseChave(chave) : null;
+    const cnpj = info && info.cnpj ? String(info.cnpj).replace(/\D/g, '') : '';
+    let loja = '';
+    const ult = S.purchases.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+    const conhecida = cnpj ? ult.filter(function (p) { return p.store && p.store.cnpj === cnpj && p.store.name; })[0] : null;
+    if (conhecida) loja = conhecida.store.name; else if (!cnpj && ult[0] && ult[0].store) loja = ult[0].store.name || '';
+    manualForm = { chave: info ? chave : '', uf: info ? info.uf : '', cnpj: cnpj, loja: loja };
+    tab = 'add'; render(); window.scrollTo(0, 0);
+  }
+  function viewManual() {
+    const f = manualForm;
+    const hoje = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    const lojas = []; S.purchases.forEach(function (p) { const n = p.store && p.store.name; if (n && lojas.indexOf(n) < 0) lojas.push(n); });
+    const lojaInp = h('input', { type: 'text', id: 'm-loja', value: f.loja, placeholder: 'Nome do mercado', autocomplete: 'off', 'aria-label': 'Nome da loja', list: 'm-lojas' });
+    const dl = h('datalist', { id: 'm-lojas' }); lojas.slice(0, 20).forEach(function (n) { dl.append(h('option', { value: n })); });
+    const dataInp = h('input', { type: 'text', id: 'm-data', value: pad(hoje.getDate()) + '/' + pad(hoje.getMonth() + 1) + '/' + hoje.getFullYear(), inputmode: 'numeric', placeholder: 'dd/mm/aaaa', 'aria-label': 'Data da compra' });
+    const totalInp = h('input', { type: 'text', id: 'm-total', inputmode: 'decimal', placeholder: 'Ex.: 19,04', 'aria-label': 'Valor total da compra' });
+    const erro = h('div', { class: 'warn', hidden: true });
+    const salvar = function () {
+      const total = Core.parseMoney(totalInp.value);
+      const iso = NFParser.toISODate(dataInp.value);
+      erro.hidden = false;
+      if (total == null || !(total > 0)) { erro.textContent = 'Informe o valor total do cupom, por exemplo 19,04.'; totalInp.focus(); return; }
+      if (!iso) { erro.textContent = 'Informe a data no formato dd/mm/aaaa.'; dataInp.focus(); return; }
+      const r = { chave: f.chave, uf: f.uf, date: iso, total: total, store: { name: lojaInp.value.trim(), cnpj: f.cnpj }, items: [], warnings: [] };
+      if (isDup(r)) { erro.textContent = 'Esta nota já foi salva antes.'; return; }
+      const rec = { id: 'n' + Date.now(), chave: f.chave, uf: f.uf, date: iso, store: r.store, total: Math.round(total * 100) / 100, items: [], semItens: true };
+      S.purchases.push(rec); save();
+      manualForm = null; tab = 'home'; render();
+      toast('Registrado: ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () { S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); save(); render(); });
+    };
+    [lojaInp, dataInp, totalInp].forEach(function (el) { el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); salvar(); } }); });
+    view.append(h('div', { class: 'card' },
+      h('h2', { text: 'Registrar só o total' }),
+      h('div', { class: 'mute', text: 'Use o valor do cupom. O gasto entra no mês e em "Outros", sem os itens.' }),
+      h('label', { text: 'Valor total (R$)' }), totalInp,
+      h('label', { text: 'Nome da loja' }), lojaInp, dl,
+      h('label', { text: 'Data da compra' }), dataInp, erro,
+      h('div', { class: 'flex', style: 'margin-top:12px' },
+        h('button', { text: 'Cancelar', onclick: function () { manualForm = null; render(); } }),
+        h('button', { class: 'primary', id: 'm-salvar', text: 'Salvar', onclick: salvar }))));
+    setTimeout(function () { try { totalInp.focus(); } catch (e) { /* ok */ } }, 0);
   }
 
   // ---------- revisão ----------
@@ -995,6 +1050,7 @@
       const montar = function () {
         if (montada) return; montada = true;
         const corpo = [];
+        if (p.semItens) corpo.push(h('div', { class: 'mute', text: 'Só o total foi registrado nesta nota, sem os itens.' }));
         p.items.forEach(function (it) {
           const pr = byItem[p.id + '|' + it.nome];
           const cat = pr ? (S.overrides[pr.key] || pr.categoria) : 'outros';

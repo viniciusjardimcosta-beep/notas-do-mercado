@@ -16,6 +16,34 @@ t('texto do portal DFe: um campo por linha, preço unitário pelo total truncado
   assert.strictEqual(P.parseAny('12\n34,50\nUN\n5,00').items.length, 0);
 });
 
+t('portal DFe: abas "Dados da NF-e" e "Produtos e Serviços" coladas juntas, em qualquer ordem', () => {
+  const cab = 'Dados da NF-e: 43261102355312000224650030005048301782777544\nModelo\n65\nSérie\n3\nNúmero\n504830\nData de Emissão\n15/11/2026 10:23:06-03:00\nValor Total da Nota Fiscal \n19,04\nEmitente\nCNPJ\n02.355.312/0002-24\nNome / Razão Social\nWeidle & Cia Ltda - Filial 01\nInscrição Estadual\n0900053780\nUF\nRS\n';
+  const it = '1\nREFRI PEPSI BLACK 2LT\n1,0000\nUN\n8,89\n2\nBATATA BRANCA KG\n1,1450\nKG\n9,14\n3\nREPOLHO VERDE KG\n0,5400\nKG\n1,61';
+  for (const txt of [cab + it, it + '\n' + cab]) {
+    const r = P.parseAny(txt);
+    assert.strictEqual(r.items.length, 3);
+    assert.strictEqual(r.date, '2026-11-15'); assert.strictEqual(r.total, 19.04);
+    assert.strictEqual(r.store.name, 'Weidle & Cia Ltda - Filial 01'); assert.strictEqual(r.store.cnpj, '02355312000224');
+    assert.strictEqual(r.uf, 'RS');
+    assert.ok(r.warnings.some(w => /19\.64.*19\.04/.test(w)), 'avisa que a soma difere do total (desconto)');
+  }
+  assert.strictEqual(P.parseAny(cab).items.length, 0);
+});
+
+t('nota registrada só com o total entra no gasto e em "Outros", mas não vira produto', () => {
+  const compras = [
+    { id: 'a', date: '2026-11-10', total: 10, store: { name: 'X', cnpj: '' }, items: [{ nome: 'ARROZ 5KG', codigo: '', qtd: 1, un: 'UN', vlUnit: 10, vlTotal: 10 }] },
+    { id: 'b', date: '2026-11-15', total: 19.04, store: { name: 'Weidle', cnpj: '' }, items: [], semItens: true }
+  ];
+  assert.strictEqual(C.buildProducts(compras).length, 1);
+  const cats = C.categoryTotals(compras, {}, {}, '2026-11');
+  const soma = cats.reduce((a, c) => a + c.total, 0);
+  assert.strictEqual(Math.round(soma * 100) / 100, 29.04);
+  assert.strictEqual(C.monthlyTotals(compras)[0].total, 29.04);
+  assert.strictEqual(C.catalogo(compras, '').length, 1);
+  assert.ok(C.shoppingList(compras, new Date('2026-12-30'), {}).every(x => !/sem itens/i.test(x.nome)));
+});
+
 // monta uma chave de 44 dígitos com DV correto (RS=43, modelo 65)
 function mkChave(prefix43) {
   let sum = 0, w = 2;

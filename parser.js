@@ -177,6 +177,9 @@
     if (d) out.date = toISODate(d[1]);
     const t = text.match(/Valor\s+(?:a\s+pagar|total)\s*(?:R\$)?\s*:?\s*R?\$?\s*([\d.,]+)/i);
     if (t) out.total = num(t[1]);
+    // portal DFe: "Valor Total da Nota Fiscal 19,04" e "Nome / Razão Social Fulano Ltda"
+    if (isNaN(out.total)) { const t2 = text.match(/Valor\s+Total\s+da\s+Nota\s+Fiscal\s*:?\s*(?:R\$)?\s*([\d.,]+)/i); if (t2) out.total = num(t2[1]); }
+    if (!out.store.name) { const n = text.match(/Nome\s*\/\s*Raz[ãa]o\s+Social\s*:?\s*(.+?)\s+(?:Inscri[çc][ãa]o\s+Estadual|CNPJ|UF)\b/i); if (n) out.store.name = n[1].trim(); }
     return out;
   }
 
