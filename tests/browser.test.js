@@ -248,6 +248,23 @@ function nota(itens, data, loja) {
   }
   console.log('ok   aviso de estado ainda não testado');
 
+  // 6e3) SEFAZ recusa o QR (erro 101, CSC inválido): mensagem clara, não "não achei itens"
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: '101 - CSC inválido para o contribuinte.' }));
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota');
+    await pg.waitForSelector('text=recusou o QR Code desta nota');
+    const t3 = await pg.innerText('#view');
+    assert.ok(/não no app nem na câmera/.test(t3) && /opção 3/.test(t3) && !/Não consegui achar itens/.test(t3), t3);
+    assert.ok(t3.replace(/\s/g, '').includes(chRS.replace(/(\d{4})(?=\d)/g, '$1 ').replace(/\s/g, '')));
+    await cx.close();
+  }
+  console.log('ok   SEFAZ recusa o QR (CSC inválido): mensagem clara');
+
   // 6f) relatório de problema remove CPF
   await page.click('nav button[data-t=add]');
   await page.click('summary');

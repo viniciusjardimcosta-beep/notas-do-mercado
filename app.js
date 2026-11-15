@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.17.0';
+  const VERSION = '0.17.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -629,6 +629,11 @@
     }
     const ufOrigem = ufDaChave(NFParser.extractChave(origem || '') || NFParser.extractChave(text));
     lastRead = { text: plainText(text), summary: 'lendo', uf: ufOrigem };
+    if (/CSC inv[aá]lido/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
+      lastRead.summary = 'SEFAZ recusou o QR Code (CSC inválido)';
+      const k = NFParser.extractChave(origem || '');
+      return say(msg, 'A SEFAZ recusou o QR Code desta nota (erro 101, "CSC inválido"). O defeito está no QR Code impresso pelo mercado, não no app nem na câmera. Use o plano B: abra o site da SEFAZ do seu estado, consulte pela chave de 44 dígitos' + (k ? ' (' + k.replace(/(\d{4})(?=\d)/g, '$1 ') + ')' : ' que está impressa no cupom') + ', copie o texto da nota e cole na opção 3.' + dicaUf(ufOrigem), true);
+    }
     let r;
     try { r = NFParser.parseAny(text); } catch (e) { lastRead.summary = 'erro: ' + e.message; return say(msg, 'Erro ao ler a nota: ' + e.message + dicaUf(ufOrigem), true); }
     if (!lastRead.uf && r.uf) lastRead.uf = r.uf;
