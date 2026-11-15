@@ -213,3 +213,7 @@ Motivo: uma nota de mercado do RS com QR pequeno e denso (endereço + código de
 - Depois de 10 s sem ler, mostra a dica de aproximar e aponta para a foto.
 - Botão "Ler de uma foto": abre a câmera nativa (input file com capture), tenta 3 tamanhos (2400, 1600, 1100 px) com BarcodeDetector e/ou jsQR. A foto fica só na memória.
 - Testes: `tests/fixtures/qr-denso.jpg` (QR versão 8 gerado de endereço fictício de teste) e `sem-qr.jpg`.
+
+## v0.17.1 e v0.17.2
+- v0.17.1: quando a SEFAZ responde "101 - CSC inválido" (QR impresso com defeito pelo mercado), o app explica e leva ao plano B.
+- v0.17.2: o plano B entende o texto do portal DFe (dfe-portal.svrs.rs.gov.br), onde cada campo vem em uma linha (número, descrição, quantidade, unidade, valor total). Não há valor unitário nesse texto: o app procura o preço de 2 casas cujo total, truncado ou arredondado, bate com o item (1,145 kg × 7,99 = 9,1485 → 9,14). Limitação: sem o texto completo da página não há data, loja, total nem desconto por item; a data e a loja se corrigem na revisão.

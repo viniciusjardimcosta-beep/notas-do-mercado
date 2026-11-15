@@ -265,6 +265,22 @@ function nota(itens, data, loja) {
   }
   console.log('ok   SEFAZ recusa o QR (CSC inválido): mensagem clara');
 
+  // 6e4) plano B com texto do portal DFe (um campo por linha) abre a revisão com os itens
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.click('summary:has-text("Plano B")');
+    await pg.fill('textarea', '1\nREFRI PEPSI BLACK 2LT\n1,0000\nUN\n8,89\n2\nBATATA BRANCA KG\n1,1450\nKG\n9,14\n3\nREPOLHO VERDE KG\n0,5400\nKG\n1,61\n');
+    await pg.click('text=Ler texto colado');
+    await pg.waitForSelector('text=BATATA BRANCA KG');
+    const tx = await pg.innerText('#view');
+    assert.ok(/REFRI PEPSI BLACK 2LT/.test(tx) && /REPOLHO VERDE KG/.test(tx) && !/Não consegui achar itens/.test(tx), tx);
+    await cx.close();
+  }
+  console.log('ok   plano B com texto do portal DFe');
+
   // 6f) relatório de problema remove CPF
   await page.click('nav button[data-t=add]');
   await page.click('summary');

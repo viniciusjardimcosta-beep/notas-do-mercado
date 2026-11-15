@@ -6,6 +6,16 @@ const C = require('../app/core.js');
 let n = 0;
 function t(name, fn) { try { fn(); n++; console.log('ok  ', name); } catch (e) { console.error('FALHOU', name, '\n', e.message); process.exitCode = 1; } }
 
+t('texto do portal DFe: um campo por linha, preço unitário pelo total truncado', () => {
+  const r = P.parseAny('1\nREFRI PEPSI BLACK 2LT\n1,0000\nUN\n8,89\n2\nBATATA BRANCA KG\n1,1450\nKG\n9,14\n3\nREPOLHO VERDE KG\n0,5400\nKG\n1,61\n');
+  assert.strictEqual(r.strategy, 'colunas');
+  assert.deepStrictEqual(r.items.map(i => [i.nome, i.qtd, i.un, i.vlUnit, i.vlTotal]),
+    [['REFRI PEPSI BLACK 2LT', 1, 'UN', 8.89, 8.89], ['BATATA BRANCA KG', 1.145, 'KG', 7.99, 9.14], ['REPOLHO VERDE KG', 0.54, 'KG', 2.99, 1.61]]);
+  assert.ok(r.items.every(i => !i.check));
+  // nomes que são só texto e números soltos não viram item
+  assert.strictEqual(P.parseAny('12\n34,50\nUN\n5,00').items.length, 0);
+});
+
 // monta uma chave de 44 dígitos com DV correto (RS=43, modelo 65)
 function mkChave(prefix43) {
   let sum = 0, w = 2;

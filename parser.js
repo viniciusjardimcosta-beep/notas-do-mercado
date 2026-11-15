@@ -139,6 +139,31 @@
     return items;
   }
 
+  // ---------- estratégia D: colunas, um campo por linha (texto copiado do portal DFe) ----------
+  // Cada item vem como 5 linhas: número, descrição, quantidade, unidade, valor total. Não há valor unitário: finish() calcula.
+  // Sem valor unitário na página: acha o preço (2 casas) cujo total, truncado ou arredondado, bate com o valor do item.
+  // Muitos mercados truncam (1,145 kg × 7,99 = 9,1485 vira 9,14), e só dividir daria 7,98.
+  function unitarioPorTotal(qtd, vt) {
+    if (!(qtd > 0) || isNaN(vt)) return NaN;
+    const base = Math.round(vt / qtd * 100), cents = Math.round(vt * 100);
+    for (let k = -2; k <= 3; k++) if (Math.floor(qtd * (base + k) + 1e-6) === cents) return (base + k) / 100;
+    for (let k = -2; k <= 3; k++) if (Math.round(qtd * (base + k)) === cents) return (base + k) / 100;
+    return round2(vt / qtd);
+  }
+  function parseColunas(text) {
+    const L = String(text).split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+    const dec = /^\d{1,3}(?:\.\d{3})*,\d+$|^\d+,\d+$/;
+    const items = [];
+    for (let i = 0; i + 4 < L.length; i++) {
+      if (!/^\d{1,3}$/.test(L[i]) || dec.test(L[i + 1]) || /^\d+$/.test(L[i + 1])) continue;
+      if (!dec.test(L[i + 2]) || !/^[A-Za-z]{1,4}$/.test(L[i + 3]) || !dec.test(L[i + 4])) continue;
+      const qtd = num(L[i + 2]), vt = num(L[i + 4]);
+      items.push({ nome: L[i + 1], codigo: '', qtd: qtd, un: L[i + 3].toUpperCase(), vlUnit: unitarioPorTotal(qtd, vt), vlTotal: vt });
+      i += 4;
+    }
+    return items;
+  }
+
   // ---------- cabeçalho ----------
   function parseHeader(text, doc) {
     const out = { store: { name: '', cnpj: '' }, date: null, total: NaN };
@@ -219,6 +244,7 @@
     // 2) tudo corrido numa linha só
     if (!items.length) items = parseCollapsedText(collapsed);
     if (!items.length) { items = parseLines(text); strategy = 'linhas'; }
+    if (!items.length) { items = parseColunas(text); strategy = 'colunas'; }
     return finish(items, header, text, strategy);
   }
 
