@@ -750,6 +750,26 @@ function nota(itens, data, loja) {
   await ctx4.close();
   console.log('ok   alerta de aumento ao salvar nota');
 
+  // 6i7) ler QR de uma foto (câmera nativa, QR denso): com e sem QR, e com o leitor embutido (sem BarcodeDetector)
+  {
+    const brF = await chromium.launch();
+    for (const semDetector of [true, false]) {
+      const ctxF = await brF.newContext({ viewport: { width: 390, height: 800 } });
+      await ctxF.addInitScript(sem => { if (sem) delete window.BarcodeDetector; window.NOTAS_CONFIG = { proxy: '' }; localStorage.setItem('notas.v1', JSON.stringify({ seen: true, purchases: [] })); }, semDetector);
+      const pF = await ctxF.newPage();
+      await pF.goto(base);
+      await pF.click('nav button[data-t=add]');
+      assert.ok(await pF.locator('button:has-text("Ler de uma foto")').count() === 1);
+      await pF.setInputFiles('#foto-qr', path.join(__dirname, 'fixtures', 'sem-qr.jpg'));
+      await pF.waitForSelector('text=Não achei um QR Code nessa foto');
+      await pF.setInputFiles('#foto-qr', path.join(__dirname, 'fixtures', 'qr-denso.jpg'));
+      await pF.waitForSelector('text=QR Code lido', { timeout: 10000 });
+      await ctxF.close();
+    }
+    await brF.close();
+    console.log('ok   ler QR de uma foto (denso, com e sem leitor nativo; sem QR avisa)');
+  }
+
   // 7) captura de tela para conferir o visual
   await page.click('nav button[data-t=home]');
   await page.screenshot({ path: path.join(__dirname, 'home.png'), fullPage: true });

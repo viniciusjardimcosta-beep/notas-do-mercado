@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.16.0';
+  const VERSION = '0.17.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -555,13 +555,25 @@
     const vid = h('video', { playsinline: true, muted: true, autoplay: true, hidden: true, 'aria-label': 'Câmera' });
     vid.muted = true; vid.playsInline = true;
     const btnScan = h('button', { class: 'primary', text: 'Escanear QR Code da nota', onclick: function () { startScan(vid, msg); } });
+    const foto = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, id: 'foto-qr' });
+    const btnFoto = h('button', { text: 'Ler de uma foto', onclick: function () { foto.click(); } });
+    foto.addEventListener('change', async function () {
+      const f = foto.files && foto.files[0]; foto.value = '';
+      if (!f) return;
+      stopScan(); vid.hidden = true;
+      say(msg, 'Lendo a foto…');
+      let v = null;
+      try { v = await lerQRdeFoto(f); } catch (e) { v = null; }
+      if (v) return handleInput(v, msg);
+      say(msg, 'Não achei um QR Code nessa foto. Tire de perto, com o QR Code ocupando boa parte da imagem, sem brilho nem sombra. Ou use a opção 2.', true);
+    });
     const inp = h('input', { type: 'text', placeholder: 'Endereço do QR Code ou chave de 44 dígitos', inputmode: 'url', autocomplete: 'off' });
     const btnGo = h('button', { text: 'Buscar nota', onclick: function () { handleInput(inp.value, msg); } });
     const ta = h('textarea', { placeholder: 'Cole aqui o texto da página da nota (plano B)' });
     const btnTxt = h('button', { text: 'Ler texto colado', onclick: function () { handleText(ta.value, msg, ''); } });
 
     view.append(
-      h('div', { class: 'card' }, h('h2', { text: '1. Escanear' }), btnScan, h('div', { style: 'margin-top:10px' }, vid)),
+      h('div', { class: 'card' }, h('h2', { text: '1. Escanear' }), h('div', { class: 'flex' }, btnScan, btnFoto), foto, h('div', { class: 'mute', style: 'margin-top:8px', text: 'QR Code pequeno ou difícil? Use “Ler de uma foto”: o celular tira a foto de perto e o app lê o QR dela.' }), h('div', { style: 'margin-top:10px' }, vid)),
       h('div', { class: 'card' }, h('h2', { text: '2. Colar o endereço' }),
         h('div', { class: 'mute', text: 'Se a câmera não ler, abra o QR Code do cupom no leitor do celular e copie o endereço.' }),
         h('div', { style: 'margin-top:8px' }, inp), h('div', { style: 'margin-top:8px' }, btnGo)),
@@ -642,7 +654,7 @@
     stopScan();
     try {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       } catch (e1) {
         if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'ConstraintNotSatisfiedError')) stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         else throw e1;
@@ -664,8 +676,16 @@
       say(msg, 'Toque na imagem preta para ligar a câmera.', true);
       vid.addEventListener('click', function () { tocar().then(function () { say(msg, 'Aponte para o QR Code do cupom…'); }, function () {}); }, { once: true });
     }
+    // Foco contínuo (onde o aparelho deixa): QR pequeno e denso só lê se estiver nítido.
+    try {
+      const trilha = stream.getVideoTracks()[0], cap = trilha && trilha.getCapabilities ? trilha.getCapabilities() : {};
+      if (cap.focusMode && cap.focusMode.indexOf('continuous') >= 0) trilha.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+    } catch (e) { /* sem controle de foco: segue */ }
     scanning = true;
     const meuStream = stream;
+    setTimeout(function () {
+      if (scanning && stream === meuStream && vid.videoWidth) say(msg, 'Ainda não leu. Aproxime até o QR Code ocupar boa parte da tela e segure parado. Se não der, use "Ler de uma foto" abaixo.', true);
+    }, 10000);
     setTimeout(function () {
       if (scanning && stream === meuStream && !vid.videoWidth) {
         stopScan(); vid.hidden = true;
@@ -694,12 +714,49 @@
           const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const c = window.jsQR(img.data, img.width, img.height);
           if (c) value = c.data;
+          else value = lerCentroAmpliado(canvas);
         }
         if (value) { stopScan(); vid.hidden = true; return handleInput(value, msg); }
       } catch (e) { /* continua tentando */ }
       setTimeout(tick, 250);
     };
     tick();
+  }
+  // QR denso e pequeno no quadro: recorta o centro e amplia, porque o leitor lê melhor com mais pixels por quadradinho.
+  function lerCentroAmpliado(canvas) {
+    try {
+      const w = canvas.width, h = canvas.height, cw = Math.round(w * 0.6), ch = Math.round(h * 0.6);
+      const c2 = document.createElement('canvas'), k = 1.6;
+      c2.width = Math.round(cw * k); c2.height = Math.round(ch * k);
+      const x2 = c2.getContext('2d', { willReadFrequently: true });
+      x2.imageSmoothingEnabled = true;
+      x2.drawImage(canvas, Math.round((w - cw) / 2), Math.round((h - ch) / 2), cw, ch, 0, 0, c2.width, c2.height);
+      const d = x2.getImageData(0, 0, c2.width, c2.height), r = window.jsQR(d.data, d.width, d.height);
+      return r ? r.data : null;
+    } catch (e) { return null; }
+  }
+  // Lê o QR de uma foto (câmera nativa do celular, resolução cheia). A foto fica só na memória, não é guardada nem enviada.
+  async function lerQRdeFoto(file) {
+    let bmp;
+    try { bmp = await createImageBitmap(file); }
+    catch (e) {
+      bmp = await new Promise(function (ok, fail) { const im = new Image(), u = URL.createObjectURL(file); im.onload = function () { URL.revokeObjectURL(u); ok(im); }; im.onerror = fail; im.src = u; });
+    }
+    const bw = bmp.width || bmp.naturalWidth, bh = bmp.height || bmp.naturalHeight;
+    const lado = Math.max(bw, bh), tamanhos = [Math.min(1, 2400 / lado), Math.min(1, 1600 / lado), Math.min(1, 1100 / lado)];
+    let detector = null;
+    if ('BarcodeDetector' in window) { try { detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; } }
+    if (!detector || !window.jsQR) { try { await loadJsQR(); } catch (e) { if (!detector) return null; } }
+    for (let i = 0; i < tamanhos.length; i++) {
+      if (i && tamanhos[i] === tamanhos[i - 1]) continue;
+      const c = document.createElement('canvas');
+      c.width = Math.round(bw * tamanhos[i]); c.height = Math.round(bh * tamanhos[i]);
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(bmp, 0, 0, c.width, c.height);
+      if (detector) { try { const codes = await detector.detect(c); if (codes.length) return codes[0].rawValue; } catch (e) { /* tenta o outro */ } }
+      if (window.jsQR) { const d = x.getImageData(0, 0, c.width, c.height), r = window.jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' }); if (r) return r.data; }
+    }
+    return null;
   }
   function stopScan() {
     scanning = false;

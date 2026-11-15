@@ -206,3 +206,10 @@ A política de privacidade foi atualizada com uma frase sobre isso.
 - "Para onde foi o dinheiro" continua, por padrão, com os últimos 12 meses (ou todo o período, se o histórico for menor).
 - Um seletor permite escolher um mês específico (qualquer mês com notas, mesmo mais antigo que 12 meses): mostra o total do mês, o número de notas e cada categoria com valor e porcentagem do total.
 - A porcentagem também aparece no modo padrão. A escolha vale só para a tela aberta e volta ao padrão ao recarregar.
+
+## Leitura de QR denso (v0.17)
+Motivo: uma nota de mercado do RS com QR pequeno e denso (endereço + código de segurança) não lia na câmera ao vivo. Testes com a foto real: o jsQR lê em resolução cheia e em 1280 px, mas não em 720 px nem em recorte pequeno.
+- Câmera ao vivo pede 1920x1080 e foco contínuo (quando o aparelho permite); sem BarcodeDetector, tenta também o centro do quadro ampliado.
+- Depois de 10 s sem ler, mostra a dica de aproximar e aponta para a foto.
+- Botão "Ler de uma foto": abre a câmera nativa (input file com capture), tenta 3 tamanhos (2400, 1600, 1100 px) com BarcodeDetector e/ou jsQR. A foto fica só na memória.
+- Testes: `tests/fixtures/qr-denso.jpg` (QR versão 8 gerado de endereço fictício de teste) e `sem-qr.jpg`.
