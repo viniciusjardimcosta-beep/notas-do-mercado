@@ -235,12 +235,12 @@ function nota(itens, data, loja) {
   for (const [ch, esperaAviso] of [[chSC, true], [chRS, false]]) {
     const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
     const pg = await cx.newPage();
-    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 502, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: 'erro' }));
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 404, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: 'erro' }));
     await pg.goto(base);
     await pg.click('text=Entendi, começar');
     await pg.fill('input[type=text]', 'https://www.fazenda.exemplo.gov.br/nfce?p=' + ch + '|2|1');
     await pg.click('text=Buscar nota');
-    await pg.waitForSelector('text=respondeu com erro 502');
+    await pg.waitForSelector('text=respondeu com erro 404');
     const txt = await pg.innerText('#view');
     assert.strictEqual(/testando a leitura automática em SC/.test(txt), esperaAviso, txt);
     assert.ok(/plano B/.test(txt));
@@ -296,6 +296,63 @@ function nota(itens, data, loja) {
     await cx.close();
   }
   console.log('ok   cadastro rápido só com o total (a partir do QR recusado)');
+
+  // 6e3c) erro 238 (SEFAZ ainda não recebeu a nota): mensagem clara, nota guardada para tentar de novo
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    let chamadas = 0;
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => { chamadas++; route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'access-control-allow-origin': '*' }, body: '238 - NFCe emitida ainda não consta na nossa base de dados. Favor volte a consultar em outra hora.' }); });
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota');
+    await pg.waitForSelector('#pendentes');
+    const t238 = await pg.innerText('#view');
+    assert.ok(/ainda não recebeu esta nota/.test(t238) && /Para tentar de novo \(1\)/.test(t238) && !/238 - NFCe/.test(t238), t238);
+    // tentar de novo não duplica
+    await pg.click('#pendentes button:has-text("Tentar agora")');
+    await pg.waitForFunction(() => true); await pg.waitForTimeout(300);
+    assert.ok(chamadas >= 2);
+    assert.strictEqual(await pg.evaluate(() => JSON.parse(localStorage.getItem('notas.v1')).pendentes.length), 1);
+    // registrar só o total tira da lista de pendentes
+    await pg.click('#manual-238');
+    await pg.fill('#m-total', '12,50'); await pg.click('#m-salvar');
+    await pg.waitForSelector('#toast');
+    const est = await pg.evaluate(() => JSON.parse(localStorage.getItem('notas.v1')));
+    assert.strictEqual(est.pendentes.length, 0); assert.strictEqual(est.purchases.length, 1);
+    // e o ✕ remove sem salvar nada
+    await pg.click('nav button[data-t=add]');
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS.replace(/.$/, '1') + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota'); await pg.waitForSelector('#pendentes');
+    await pg.click('#pendentes button[aria-label="Tirar esta nota da lista"]');
+    assert.strictEqual(await pg.locator('#pendentes').count(), 0);
+    await cx.close();
+  }
+  console.log('ok   erro 238: guarda para tentar de novo, não duplica, sai da lista ao registrar');
+
+  // 6e3d) SEFAZ lenta (524) e sem resposta em 30 s: mesma saída, sem "tente o plano B"
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 524, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: 'timeout' }));
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota');
+    await pg.waitForSelector('#pendentes');
+    const t524 = await pg.innerText('#view');
+    assert.ok(/lento ou fora do ar/.test(t524) && /não é problema da sua nota/i.test(t524) && !/Tente o plano B/.test(t524), t524);
+    // erro que não é passageiro continua como antes
+    await pg.unroute('https://notas-proxy.caderninhodomercado.workers.dev/**');
+    await pg.route('https://notas-proxy.caderninhodomercado.workers.dev/**', route => route.fulfill({ status: 403, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: 'Site não permitido' }));
+    await pg.fill('input[type=text]', 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx?p=' + chRS.replace(/.$/, '1') + '|2|1|1|ABC');
+    await pg.click('text=Buscar nota');
+    await pg.waitForSelector('text=respondeu com erro 403');
+    assert.strictEqual(await pg.evaluate(() => JSON.parse(localStorage.getItem('notas.v1')).pendentes.length), 1);
+    await cx.close();
+  }
+  console.log('ok   SEFAZ lenta (524): guarda para tentar de novo; erro 403 segue com o plano B');
 
   // 6e4) plano B com texto do portal DFe (um campo por linha) abre a revisão com os itens
   {

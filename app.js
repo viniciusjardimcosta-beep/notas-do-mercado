@@ -9,9 +9,9 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.18.0';
+  const VERSION = '0.19.1';
   const CFG = window.NOTAS_CONFIG || {};
-  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [] };
+  const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [], pendentes: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
   let S = (function () {
     try { return Object.assign({}, JSON.parse(JSON.stringify(defaults)), JSON.parse(store.get() || '{}')); } catch (e) { return Object.assign({}, JSON.parse(JSON.stringify(defaults))); }
@@ -136,9 +136,11 @@
       total: Math.round(total * 100) / 100,
       items: r.items.map(function (i) { return { nome: i.nome, codigo: i.codigo, qtd: i.qtd, un: i.un, vlUnit: i.vlUnit, vlTotal: i.vlTotal }; })
     };
-    S.purchases.push(rec); save();
+    S.purchases.push(rec); tirarPendente(rec.chave); save();
     return rec;
   }
+  // Notas que a SEFAZ ainda não recebeu (erro 238): ficam guardadas só neste aparelho para tentar de novo.
+  function tirarPendente(chave) { if (chave && S.pendentes && S.pendentes.length) S.pendentes = S.pendentes.filter(function (x) { return x.chave !== chave; }); }
   // Salva sem perguntar só quando tudo confere.
   function autoOk(r) {
     return !!(r.date && r.items.length && !r.warnings.length && !r.items.some(function (i) { return i.check; }) &&
@@ -176,6 +178,7 @@
   // ---------- estado de tela ----------
   let tab = 'home';
   let pending = null; // nota lida aguardando confirmação
+  let desenhaPend = null; // redesenha o cartão "Para tentar de novo" da aba Adicionar
   let manualForm = null; // cadastro rápido só com o total: { chave, uf, cnpj, loja } enquanto aberto
   let stream = null, scanning = false;
 
@@ -556,6 +559,22 @@
     const msg = h('div', { id: 'msg' });
     const vid = h('video', { playsinline: true, muted: true, autoplay: true, hidden: true, 'aria-label': 'Câmera' });
     vid.muted = true; vid.playsInline = true;
+    const pendBox = h('div', { id: 'pend-box' });
+    desenhaPend = function () {
+      pendBox.replaceChildren();
+      const L = S.pendentes || [];
+      if (!L.length) return;
+      const card = h('div', { class: 'card', id: 'pendentes' }, h('h2', { text: 'Para tentar de novo (' + L.length + ')' }),
+        h('div', { class: 'mute', text: 'Notas que a SEFAZ ainda não tinha recebido. Toque em "Tentar agora" depois de um tempo.' }));
+      L.forEach(function (x) {
+        card.append(h('div', { class: 'li' },
+          h('div', { class: 'n' }, 'Nota de ' + dataBR(x.em).slice(0, 5) + (x.uf ? ' · ' + x.uf : ''), h('div', { class: 'mute', text: 'final ' + x.chave.slice(-6) })),
+          h('button', { class: 'sm primary', text: 'Tentar agora', 'aria-label': 'Tentar de novo a nota de ' + dataBR(x.em).slice(0, 5), onclick: function () { handleInput(x.url, msg); } }),
+          h('button', { class: 'sm', text: '✕', 'aria-label': 'Tirar esta nota da lista', onclick: function () { S.pendentes = S.pendentes.filter(function (y) { return y !== x; }); save(); desenhaPend(); } })));
+      });
+      pendBox.append(card);
+    };
+    desenhaPend();
     const btnScan = h('button', { class: 'primary', text: 'Escanear QR Code da nota', onclick: function () { startScan(vid, msg); } });
     const foto = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, id: 'foto-qr' });
     const btnFoto = h('button', { text: 'Ler de uma foto', onclick: function () { foto.click(); } });
@@ -576,6 +595,7 @@
 
     view.append(
       h('div', { class: 'card' }, h('h2', { text: '1. Escanear' }), h('div', { class: 'flex' }, btnScan, btnFoto), foto, h('div', { class: 'mute', style: 'margin-top:8px', text: 'QR Code pequeno ou difícil? Use “Ler de uma foto”: o celular tira a foto de perto e o app lê o QR dela.' }), h('div', { style: 'margin-top:10px' }, vid)),
+      pendBox,
       h('div', { class: 'card' }, h('h2', { text: '2. Colar o endereço' }),
         h('div', { class: 'mute', text: 'Se a câmera não ler, abra o QR Code do cupom no leitor do celular e copie o endereço.' }),
         h('div', { style: 'margin-top:8px' }, inp), h('div', { style: 'margin-top:8px' }, btnGo)),
@@ -591,6 +611,25 @@
 
   function say(msg, text, isWarn) {
     msg.replaceChildren(h('div', { class: isWarn ? 'warn' : 'mute', text: text }));
+  }
+
+  // Problema passageiro (nota ainda não enviada, SEFAZ lenta ou fora do ar): guarda a nota para tentar de novo e oferece o total.
+  function avisoTentarDepois(msg, texto, chave, url, uf) {
+    let guardada = false;
+    if (chave && url) {
+      if (!S.pendentes) S.pendentes = [];
+      if (!S.pendentes.some(function (x) { return x.chave === chave; })) {
+        const d = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+        S.pendentes.push({ chave: chave, url: url, uf: uf || '', em: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) });
+        if (S.pendentes.length > 20) S.pendentes.shift();
+        save();
+      }
+      guardada = true;
+    }
+    say(msg, texto + ' ' + (guardada ? 'Guardei a nota aqui em "Para tentar de novo", é só voltar mais tarde.' : 'Tente de novo mais tarde.'));
+    msg.append(h('div', { class: 'flex', style: 'margin-top:8px' }, h('button', { id: 'manual-238', text: 'Registrar só o total agora', onclick: function () { abrirManual(chave); } })));
+    try { msg.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* ok */ }
+    if (guardada && desenhaPend) desenhaPend();
   }
 
   async function handleInput(raw, msg) {
@@ -616,8 +655,19 @@
     lastRead = { text: '', summary: 'buscando', uf: ufNota };
     try {
       const px = proxyUrl();
-      const res = await fetch(px + (px.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]));
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const espera = ctl ? setTimeout(function () { ctl.abort(); }, 30000) : null;
+      let res;
+      try { res = await fetch(px + (px.indexOf('?') >= 0 ? '&' : '?') + 'u=' + encodeURIComponent(urlMatch[0]), ctl ? { signal: ctl.signal } : undefined); }
+      catch (e) {
+        if (ctl && ctl.signal.aborted) { lastRead.summary = 'SEFAZ demorou demais (30 s)'; return avisoTentarDepois(msg, 'A SEFAZ está demorando demais para responder. Não é problema da sua nota nem do seu celular.', chave, urlMatch[0], ufNota); }
+        throw e;
+      } finally { if (espera) clearTimeout(espera); }
       if (res.status === 429) { lastRead.summary = 'limite do proxy'; return say(msg, 'Muitas consultas seguidas. Espere um minuto e tente de novo.', true); }
+      if ([408, 500, 502, 503, 504, 520, 521, 522, 523, 524].indexOf(res.status) >= 0) {
+        lastRead.summary = 'erro HTTP ' + res.status + ' (SEFAZ lenta ou fora do ar)';
+        return avisoTentarDepois(msg, 'O site da SEFAZ está lento ou fora do ar agora (erro ' + res.status + '). Não é problema da sua nota nem do seu celular.', chave, urlMatch[0], ufNota);
+      }
       if (!res.ok) { lastRead.summary = 'erro HTTP ' + res.status; return say(msg, 'O site da SEFAZ respondeu com erro ' + res.status + '. Tente o plano B.' + dicaUf(ufNota), true); }
       const text = await res.text();
       handleText(text, msg, raw);
@@ -634,6 +684,10 @@
     }
     const ufOrigem = ufDaChave(NFParser.extractChave(origem || '') || NFParser.extractChave(text));
     lastRead = { text: plainText(text), summary: 'lendo', uf: ufOrigem };
+    if (/\b238\b[^\n]{0,40}(n[ãa]o\s+consta|base\s+de\s+dados)/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
+      lastRead.summary = 'SEFAZ ainda não recebeu a nota (238)';
+      return avisoTentarDepois(msg, 'A SEFAZ ainda não recebeu esta nota. Mercados menores às vezes enviam depois, em minutos ou até no dia seguinte.', NFParser.extractChave(origem || ''), (String(origem || '').match(/https?:\/\/[^\s"'<>]+/i) || [])[0], ufOrigem);
+    }
     if (/CSC inv[aá]lido/i.test(text) && !/Vl\.?\s*Unit|txtTit/i.test(text)) {
       lastRead.summary = 'SEFAZ recusou o QR Code (CSC inválido)';
       const k = NFParser.extractChave(origem || '');
@@ -817,7 +871,7 @@
       const r = { chave: f.chave, uf: f.uf, date: iso, total: total, store: { name: lojaInp.value.trim(), cnpj: f.cnpj }, items: [], warnings: [] };
       if (isDup(r)) { erro.textContent = 'Esta nota já foi salva antes.'; return; }
       const rec = { id: 'n' + Date.now(), chave: f.chave, uf: f.uf, date: iso, store: r.store, total: Math.round(total * 100) / 100, items: [], semItens: true };
-      S.purchases.push(rec); save();
+      S.purchases.push(rec); tirarPendente(rec.chave); save();
       manualForm = null; tab = 'home'; render();
       toast('Registrado: ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () { S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); save(); render(); });
     };
