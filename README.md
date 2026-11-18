@@ -226,3 +226,6 @@ Mercados menores emitem em contingência e enviam a nota depois: a SEFAZ respond
 
 ## v0.19.1 — SEFAZ lenta ou fora do ar
 Erros passageiros (HTTP 408, 500, 502, 503, 504, 520 a 524) e consulta sem resposta em 30 s agora seguem o mesmo caminho do erro 238: mensagem sem culpa ("não é problema da sua nota nem do seu celular"), nota guardada em "Para tentar de novo" e botão "Registrar só o total agora". Erros como 403 e 404 continuam sugerindo o plano B. O limite de 30 s fica no app (AbortController); o Worker não mudou.
+
+## v0.20 — registrar à mão com itens (opcional)
+O cadastro "só o total" ganhou o bloco recolhido "Adicionar os itens (opcional)": produto (sugere nomes já usados), quantidade (até 4 casas), UN/KG e preço unitário, como no cupom. Sem itens a nota é guardada com `semItens: true`. Com itens ela é uma nota normal (Preços, alertas e categorias). Se o total ficar em branco vale a soma dos itens; se for preenchido, vale o total do cupom (cobre desconto). Também inclui a correção "1 item" no singular.

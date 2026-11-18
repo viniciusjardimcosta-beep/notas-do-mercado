@@ -297,6 +297,46 @@ function nota(itens, data, loja) {
   }
   console.log('ok   cadastro rápido só com o total (a partir do QR recusado)');
 
+  // 6e3e) cadastro à mão com itens (opcional): soma vira total, preço unitário entra em Preços
+  {
+    const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    const pg = await cx.newPage();
+    await pg.goto(base);
+    await pg.click('text=Entendi, começar');
+    await pg.click('nav button[data-t=add]');
+    await pg.click('#abrir-manual');
+    await pg.waitForSelector('#m-total');
+    assert.ok(!(await pg.locator('#m-itens-box').evaluate(d => d.open)), 'itens começam recolhidos');
+    await pg.click('#m-itens-box summary');
+    const l1 = pg.locator('.m-linha').nth(0);
+    await l1.locator('input').nth(0).fill('CEBOLA KG');
+    await l1.locator('input').nth(1).fill('1,255');
+    await l1.locator('select').selectOption('KG');
+    await l1.locator('input').nth(2).fill('11,90');
+    await pg.click('#m-add-item');
+    const l2 = pg.locator('.m-linha').nth(1);
+    await l2.locator('input').nth(0).fill('SPRITE ORIGINAL 2L');
+    await l2.locator('input').nth(2).fill('8,89');
+    await pg.fill('#m-data', '18/11/2026');
+    await pg.click('#m-salvar');
+    await pg.waitForSelector('#toast');
+    const rec = await pg.evaluate(() => JSON.parse(localStorage.getItem('notas.v1')).purchases[0]);
+    assert.strictEqual(rec.items.length, 2); assert.ok(!rec.semItens);
+    assert.strictEqual(rec.total, 23.82); // 14,93 + 8,89
+    assert.deepStrictEqual([rec.items[0].qtd, rec.items[0].un, rec.items[0].vlUnit, rec.items[0].vlTotal], [1.255, 'KG', 11.9, 14.93]);
+    await pg.click('nav button[data-t=prices]').catch(() => {});
+    // linha incompleta barra o salvamento com aviso claro
+    await pg.click('nav button[data-t=add]');
+    await pg.click('#abrir-manual');
+    await pg.click('#m-itens-box summary');
+    await pg.locator('.m-linha').nth(0).locator('input').nth(0).fill('ARROZ');
+    await pg.fill('#m-total', '10');
+    await pg.click('#m-salvar');
+    assert.ok(/Confira a linha do item/.test(await pg.innerText('#view')));
+    await cx.close();
+  }
+  console.log('ok   cadastro à mão com itens opcionais');
+
   // 6e3c) erro 238 (SEFAZ ainda não recebeu a nota): mensagem clara, nota guardada para tentar de novo
   {
     const cx = await browser.newContext({ viewport: { width: 390, height: 800 } });

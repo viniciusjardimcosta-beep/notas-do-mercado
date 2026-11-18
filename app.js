@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.19.1';
+  const VERSION = '0.20.0';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [], pendentes: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -708,7 +708,7 @@
       const rec = commit(r, r.date, r.store.name);
       registrarAlertas(rec);
       pending = null; tab = 'home'; render();
-      toast('Nota salva: ' + rec.items.length + ' itens, ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () {
+      toast('Nota salva: ' + rec.items.length + (rec.items.length === 1 ? ' item, ' : ' itens, ') + brl(rec.total) + ' · ' + storeLabel(rec.store), function () {
         S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); alertas = null; save(); render();
       });
       return;
@@ -862,26 +862,70 @@
     const dataInp = h('input', { type: 'text', id: 'm-data', value: pad(hoje.getDate()) + '/' + pad(hoje.getMonth() + 1) + '/' + hoje.getFullYear(), inputmode: 'numeric', placeholder: 'dd/mm/aaaa', 'aria-label': 'Data da compra' });
     const totalInp = h('input', { type: 'text', id: 'm-total', inputmode: 'decimal', placeholder: 'Ex.: 19,04', 'aria-label': 'Valor total da compra' });
     const erro = h('div', { class: 'warn', hidden: true });
+    // itens (opcional): produto, quantidade, unidade e preço unitário, como estão no cupom
+    const nomesConhecidos = h('datalist', { id: 'm-produtos' });
+    Core.catalogo(S.purchases, '', 60).forEach(function (c) { nomesConhecidos.append(h('option', { value: c.nome })); });
+    const linhas = [], listaItens = h('div', { id: 'm-itens' });
+    const novaLinha = function () {
+      const nome = h('input', { type: 'text', placeholder: 'Produto (como no cupom)', autocomplete: 'off', list: 'm-produtos', 'aria-label': 'Nome do produto', style: 'width:100%' });
+      const qtd = h('input', { type: 'text', inputmode: 'decimal', value: '1', 'aria-label': 'Quantidade', style: 'width:64px;flex:none' });
+      const un = h('select', { 'aria-label': 'Unidade', style: 'width:auto;flex:none' }, h('option', { value: 'UN', text: 'UN' }), h('option', { value: 'KG', text: 'KG' }));
+      const pr = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Preço unit.', 'aria-label': 'Preço unitário', style: 'flex:1;min-width:80px' });
+      const l = { nome: nome, qtd: qtd, un: un, pr: pr };
+      const el = h('div', { class: 'm-linha', style: 'margin-bottom:10px' }, nome,
+        h('div', { class: 'flex', style: 'margin-top:6px;align-items:center' }, qtd, un, pr,
+          h('button', { class: 'sm', text: '✕', 'aria-label': 'Remover item', onclick: function () { linhas.splice(linhas.indexOf(l), 1); el.remove(); } })));
+      l.el = el; linhas.push(l); listaItens.append(el);
+      return l;
+    };
+    // quantidade pode ter até 4 casas (1,255 kg); parseMoney é para dinheiro e não serve aqui
+    const lerQtd = function (v) {
+      v = String(v).trim(); if (!v) return null;
+      const n = Number(v.indexOf(',') >= 0 ? v.replace(/\./g, '').replace(',', '.') : v);
+      return isFinite(n) ? n : null;
+    };
+    const lerItens = function () {
+      const out = [];
+      for (let i = 0; i < linhas.length; i++) {
+        const l = linhas[i], nome = l.nome.value.trim(), vazio = !nome && !l.pr.value.trim();
+        if (vazio) continue;
+        const q = lerQtd(l.qtd.value), u = Core.parseMoney(l.pr.value);
+        if (!nome || q == null || !(q > 0) || u == null || !(u > 0)) { return { erro: 'Confira a linha do item "' + (nome || i + 1) + '": nome, quantidade e preço unitário.', foco: !nome ? l.nome : (q == null || !(q > 0)) ? l.qtd : l.pr }; }
+        out.push({ nome: nome, codigo: '', qtd: q, un: l.un.value, vlUnit: u, vlTotal: Math.round(q * u * 100) / 100 });
+      }
+      return { itens: out };
+    };
     const salvar = function () {
-      const total = Core.parseMoney(totalInp.value);
       const iso = NFParser.toISODate(dataInp.value);
       erro.hidden = false;
+      const li = lerItens();
+      if (li.erro) { erro.textContent = li.erro; li.foco.focus(); return; }
+      const soma = li.itens.reduce(function (a, i) { return a + i.vlTotal; }, 0);
+      let total = totalInp.value.trim() ? Core.parseMoney(totalInp.value) : (li.itens.length ? Math.round(soma * 100) / 100 : null);
       if (total == null || !(total > 0)) { erro.textContent = 'Informe o valor total do cupom, por exemplo 19,04.'; totalInp.focus(); return; }
       if (!iso) { erro.textContent = 'Informe a data no formato dd/mm/aaaa.'; dataInp.focus(); return; }
       const r = { chave: f.chave, uf: f.uf, date: iso, total: total, store: { name: lojaInp.value.trim(), cnpj: f.cnpj }, items: [], warnings: [] };
       if (isDup(r)) { erro.textContent = 'Esta nota já foi salva antes.'; return; }
-      const rec = { id: 'n' + Date.now(), chave: f.chave, uf: f.uf, date: iso, store: r.store, total: Math.round(total * 100) / 100, items: [], semItens: true };
+      const rec = { id: 'n' + Date.now(), chave: f.chave, uf: f.uf, date: iso, store: r.store, total: Math.round(total * 100) / 100, items: li.itens };
+      if (!li.itens.length) rec.semItens = true;
       S.purchases.push(rec); tirarPendente(rec.chave); save();
       manualForm = null; tab = 'home'; render();
       toast('Registrado: ' + brl(rec.total) + ' · ' + storeLabel(rec.store), function () { S.purchases = S.purchases.filter(function (x) { return x.id !== rec.id; }); save(); render(); });
     };
+    novaLinha();
     [lojaInp, dataInp, totalInp].forEach(function (el) { el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); salvar(); } }); });
     view.append(h('div', { class: 'card' },
-      h('h2', { text: 'Registrar só o total' }),
-      h('div', { class: 'mute', text: 'Use o valor do cupom. O gasto entra no mês e em "Outros", sem os itens.' }),
+      h('h2', { text: 'Registrar à mão' }),
+      h('div', { class: 'mute', text: 'Use o valor do cupom. Sem os itens, o gasto entra no mês e em "Outros". Se quiser os preços por produto, adicione os itens abaixo.' }),
       h('label', { text: 'Valor total (R$)' }), totalInp,
-      h('label', { text: 'Nome da loja' }), lojaInp, dl,
-      h('label', { text: 'Data da compra' }), dataInp, erro,
+      h('label', { text: 'Nome da loja' }), lojaInp, dl, nomesConhecidos,
+      h('label', { text: 'Data da compra' }), dataInp,
+      h('details', { id: 'm-itens-box', style: 'margin-top:12px' },
+        h('summary', { text: 'Adicionar os itens (opcional)' }),
+        h('div', { class: 'mute', style: 'margin:6px 0', text: 'Copie do cupom: produto, quantidade, unidade e valor unitário. O total do cupom, se preenchido acima, vale mais que a soma.' }),
+        listaItens,
+        h('button', { class: 'sm', id: 'm-add-item', text: '+ Adicionar item', onclick: function () { novaLinha().nome.focus(); } })),
+      erro,
       h('div', { class: 'flex', style: 'margin-top:12px' },
         h('button', { text: 'Cancelar', onclick: function () { manualForm = null; render(); } }),
         h('button', { class: 'primary', id: 'm-salvar', text: 'Salvar', onclick: salvar }))));
@@ -904,7 +948,7 @@
     if (r.chave && !NFParser.parseChave(r.chave).valid) card.append(h('div', { class: 'warn', text: 'A chave de acesso não passou na conferência. Pode ter sido lida errado.' }));
     view.append(card);
 
-    const list = h('div', { class: 'card' }, h('div', { class: 'mute', text: r.items.length + ' itens (toque em remover para tirar um que veio errado)' }));
+    const list = h('div', { class: 'card' }, h('div', { class: 'mute', text: r.items.length + (r.items.length === 1 ? ' item' : ' itens') + ' (toque em remover para tirar um que veio errado)' }));
     r.items.forEach(function (it, i) {
       list.append(h('div', { class: 'row' },
         h('div', { class: 'n' }, it.nome, h('div', { class: 'mute', text: it.qtd + ' ' + it.un + ' × ' + brl(it.vlUnit) + (it.check ? ' (conferir)' : '') })),
