@@ -317,6 +317,8 @@ function nota(itens, data, loja) {
     const l2 = pg.locator('.m-linha').nth(1);
     await l2.locator('input').nth(0).fill('SPRITE ORIGINAL 2L');
     await l2.locator('input').nth(2).fill('8,89');
+    assert.ok(/Total do item: R\$\s?14,93 \(1,255 kg × R\$\s?11,90\)/.test(await l1.innerText()), await l1.innerText());
+    assert.strictEqual(await l1.locator('input').nth(2).getAttribute('placeholder'), 'Preço do kg');
     await pg.fill('#m-data', '18/11/2026');
     await pg.click('#m-salvar');
     await pg.waitForSelector('#toast');

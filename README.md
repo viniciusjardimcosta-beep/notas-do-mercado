@@ -229,3 +229,6 @@ Erros passageiros (HTTP 408, 500, 502, 503, 504, 520 a 524) e consulta sem respo
 
 ## v0.20 — registrar à mão com itens (opcional)
 O cadastro "só o total" ganhou o bloco recolhido "Adicionar os itens (opcional)": produto (sugere nomes já usados), quantidade (até 4 casas), UN/KG e preço unitário, como no cupom. Sem itens a nota é guardada com `semItens: true`. Com itens ela é uma nota normal (Preços, alertas e categorias). Se o total ficar em branco vale a soma dos itens; se for preenchido, vale o total do cupom (cobre desconto). Também inclui a correção "1 item" no singular.
+
+## v0.20.1
+No cadastro à mão, o campo de preço do item vira "Preço do kg" (KG) ou "Preço da unidade" (UN), a instrução cita a coluna VL.UNIT do cupom e cada linha mostra na hora "Total do item: R$ …". Motivo: um teste digitou o total pago (14,93) no campo de preço unitário e o app calculou 1,255 × 14,93 = 18,74.

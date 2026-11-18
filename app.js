@@ -9,7 +9,7 @@
     get: function () { try { return localStorage.getItem(KEY); } catch (e) { return mem[KEY] || null; } },
     set: function (v) { try { localStorage.setItem(KEY, v); } catch (e) { mem[KEY] = v; } }
   };
-  const VERSION = '0.20.0';
+  const VERSION = '0.20.1';
   const CFG = window.NOTAS_CONFIG || {};
   const defaults = { purchases: [], overrides: {}, cutMap: {}, corte: 20, proxy: '', auto: true, seen: false, lastBackup: '', backupSnooze: '', merges: {}, separate: {}, names: {}, noMerge: {}, meta: 0, listaSel: {}, listaFora: {}, lista: [], pendentes: [] };
   let editMeta = false; // formulário da meta mensal aberto na tela inicial
@@ -870,11 +870,18 @@
       const nome = h('input', { type: 'text', placeholder: 'Produto (como no cupom)', autocomplete: 'off', list: 'm-produtos', 'aria-label': 'Nome do produto', style: 'width:100%' });
       const qtd = h('input', { type: 'text', inputmode: 'decimal', value: '1', 'aria-label': 'Quantidade', style: 'width:64px;flex:none' });
       const un = h('select', { 'aria-label': 'Unidade', style: 'width:auto;flex:none' }, h('option', { value: 'UN', text: 'UN' }), h('option', { value: 'KG', text: 'KG' }));
-      const pr = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Preço unit.', 'aria-label': 'Preço unitário', style: 'flex:1;min-width:80px' });
+      const pr = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'Preço da unidade', 'aria-label': 'Preço unitário', style: 'flex:1;min-width:80px' });
+      const calc = h('div', { class: 'mute', style: 'margin-top:4px', 'aria-live': 'polite' });
+      const atualiza = function () {
+        pr.placeholder = un.value === 'KG' ? 'Preço do kg' : 'Preço da unidade';
+        const q = lerQtd(qtd.value), u = Core.parseMoney(pr.value);
+        calc.textContent = q > 0 && u > 0 ? 'Total do item: ' + brl(Math.round(q * u * 100) / 100) + (un.value === 'KG' ? ' (' + fmtQtd(q) + ' kg × ' + brl(u) + ')' : '') : '';
+      };
+      [qtd, pr].forEach(function (el) { el.addEventListener('input', atualiza); }); un.addEventListener('change', atualiza);
       const l = { nome: nome, qtd: qtd, un: un, pr: pr };
       const el = h('div', { class: 'm-linha', style: 'margin-bottom:10px' }, nome,
         h('div', { class: 'flex', style: 'margin-top:6px;align-items:center' }, qtd, un, pr,
-          h('button', { class: 'sm', text: '✕', 'aria-label': 'Remover item', onclick: function () { linhas.splice(linhas.indexOf(l), 1); el.remove(); } })));
+          h('button', { class: 'sm', text: '✕', 'aria-label': 'Remover item', onclick: function () { linhas.splice(linhas.indexOf(l), 1); el.remove(); } })), calc);
       l.el = el; linhas.push(l); listaItens.append(el);
       return l;
     };
@@ -922,7 +929,7 @@
       h('label', { text: 'Data da compra' }), dataInp,
       h('details', { id: 'm-itens-box', style: 'margin-top:12px' },
         h('summary', { text: 'Adicionar os itens (opcional)' }),
-        h('div', { class: 'mute', style: 'margin:6px 0', text: 'Copie do cupom: produto, quantidade, unidade e valor unitário. O total do cupom, se preenchido acima, vale mais que a soma.' }),
+        h('div', { class: 'mute', style: 'margin:6px 0', text: 'Copie do cupom: produto, quantidade, unidade e o valor da coluna VL.UNIT (preço de 1 unidade ou de 1 kg, não o total do item). O total do cupom, se preenchido acima, vale mais que a soma.' }),
         listaItens,
         h('button', { class: 'sm', id: 'm-add-item', text: '+ Adicionar item', onclick: function () { novaLinha().nome.focus(); } })),
       erro,
